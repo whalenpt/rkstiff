@@ -1,3 +1,6 @@
 __pycache__
 rkstiff/orderfuncs.py
+rkstiff/rkstiff.egg-info
 build
+dist
+
