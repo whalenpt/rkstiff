@@ -13,7 +13,7 @@ Some examples of non-linear PDES that can be numerically solved using these meth
 - Sine-Gordon
 
 The adaptive step solver
-options provided in this package are ETD34
+options provided in this package are
 1. ETD35  (5<sup>th</sup> order ETD with 3<sup>rd</sup> orderembedding)
 2. ETD34 (4<sup>th</sup> order ETD with 3<sup>rd</sup> order embedding)
 3. IF34 (4<sup>th</sup> order IF with 3<sup>rd</sup> order embedding)

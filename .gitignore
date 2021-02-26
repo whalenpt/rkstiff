@@ -3,4 +3,5 @@ rkstiff/orderfuncs.py
 rkstiff/rkstiff.egg-info
 build
 dist
+demos/.ipynb_checkpoints
 
