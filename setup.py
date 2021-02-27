@@ -1,9 +1,14 @@
 from setuptools import setup
 
+with open("README.md","r") as f:
+    long_description = f.read()
+
 setup(
         name='rkstiff',
         version='0.0.1',
         description='Runge-Kutta adaptive-step solvers for nonlinear PDEs',
-        py_modules=["etd34","etd35","if34","if45dp","grids","derivatives"],
-        package_dir={'' : 'rkstiff'},
+        long_description=long_description,
+        packages=["rkstiff"],
+        package_dir={'.' : 'rkstiff'},
+        setup_requires=["numpy","scipy"]
 )
