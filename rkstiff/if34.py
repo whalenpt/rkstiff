@@ -177,8 +177,7 @@ class IF34(StiffSolverAS):
                 self._method = _IF34_Diagonalized(linop,NLfunc)
             else:
                 self._method = _IF34_NonDiagonal(linop,NLfunc)
-        self.__N1_init = False
-        self._accept = False
+        self._reset()
 
     def _reset(self):
         #Resets solver to its initial state 

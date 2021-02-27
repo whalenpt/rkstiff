@@ -60,6 +60,7 @@ class IF45DP(StiffSolverAS):
         self._r6, self._r7 = 0.0, 0.0
         self._k = np.zeros(self.linop.shape[0],dtype=np.complex128)
         self._err = np.zeros(self.linop.shape[0],dtype=np.complex128)
+        self._h_coeff = None
         self.__N1_init = False
         
     def _reset(self):
