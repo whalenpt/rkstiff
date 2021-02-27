@@ -80,9 +80,9 @@ a,b = 0,32*np.pi
 x,kx = grids.construct_x_kx_rfft(N,a,b) 
 
 L = kx**2*(1-kx**2)
-def NL(uf):
-    u = np.fft.irfft(uf)
-    ux = np.fft.irfft(1j*kx*uf)
+def NL(uFFT):
+    u = np.fft.irfft(uFFT)
+    ux = np.fft.irfft(1j*kx*uFFT)
     return -np.fft.rfft(u*ux)
 
 u0 = np.cos(x/16)*(1.+np.sin(x/16))
