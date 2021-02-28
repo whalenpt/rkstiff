@@ -20,9 +20,10 @@ options provided in this package are
 4. IF45DP (5<sup>th</sup> order IF with 4<sup>th</sup> order embedding) 
 
 In general, one should
-prefer ETD35 as it generally has the best speed and stability for diagonal systems or diagonalized
+prefer ETD35 as it often has the best speed and stability for diagonal systems or diagonalized
 non-diagonal systems. Because the RK coefficients can be costly
-to compute IF34 can also be a good option in certain cases. A detailed discussion of these solvers is provided in the journal article  <a href = https://www.sciencedirect.com/science/article/pii/S0021999114006743> "Exponential time-differencing with embedded Runge–Kutta adaptive step control" </a>.
+to compute IF34 can also be a good option in certain cases. 
+A detailed discussion of these solvers is provided in the journal article  <a href = https://www.sciencedirect.com/science/article/pii/S0021999114006743> Exponential time-differencing with embedded Runge–Kutta adaptive step control </a>.
 
 # Dependencies
 

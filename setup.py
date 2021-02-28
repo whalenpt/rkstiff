@@ -14,7 +14,7 @@ setup(
         author_email="whalenpt@gmail.com",
         extras_require= {
             "dev": [
-                "pytest",
+                "pytest","twine",
                 ],
             },
         packages=["rkstiff"],
