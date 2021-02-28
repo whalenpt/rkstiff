@@ -8,6 +8,7 @@ setup(
         version='0.0.1',
         description='Runge-Kutta adaptive-step solvers for nonlinear PDEs',
         long_description=long_description,
+        long_description_content_type="text/markdown",
         author="Patrick Whalen",
         author_email="whalenpt@gmail.com",
         packages=["rkstiff"],
