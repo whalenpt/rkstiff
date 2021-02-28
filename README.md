@@ -53,8 +53,7 @@ tf = # final time
 uf = solver.evolve(u0,t0=t0,tf=tf)
 ```
 
-By default, when using the function evolve, the field is stored at each step in a python list. That is,
-u0,u1,...,uf are stored in solver.u. The corresponding times t0,t1,...,tf are stored in solver.t.
+By default, when using the function evolve, the field is stored at each step in a python list: u0,u1,...,uf are stored in solver.u. The corresponding times t0,t1,...,tf are stored in solver.t.
 
 # Example #
 
@@ -99,6 +98,38 @@ t = np.array(solver.t)
 The grid module in rkstiff has several useful helper functions for setting up spatial and spectral grids. Here we used it to construct grids for a real-valued `u` utilizing the real-valued numpy Fourier transform (rfft). The results of the KS 'chaotic' propagation are shown below. 
 <br>
 <img width="300" src="images/KSfig.png">
+
+# Installation #
+
+From github download the rkstiff package.
+Once downloaded, one can install the package such that the modules can be imported outside the top level rkstiff folder. From the terminal the commands required are (assumes pip previously installed)
+```bash
+git clone https://github.com/whalenpt/rkstiff.git
+cd rkstiff
+python3 -m pip install numpy scipy
+python3 -m pip install .
+```
+
+For use with Anaconda (see the <a href = https://conda.io/projects/conda/en/latest/user-guide/getting-started.html> Getting started with conda </a> guide), from the terminal
+```bash
+git clone https://github.com/whalenpt/rkstiff.git
+cd rkstiff
+conda create --name rkstiff-env numpy scipy pip
+conda activate rkstiff-env
+pip install .
+```
+
+For use with a virtualenv the install looks like (see the <a href = https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/> Python Packaging Authority </a> guide)
+```bash
+git clone https://github.com/whalenpt/rkstiff.git
+cd rkstiff
+python3 -m venv env
+source env/bin/activate
+python3 -m pip install numpy scipy wheel
+python3 -m pip install .
+```
+The demos require installation of the python `matplotlib` and `jupyter` packages in addition to `numpy` and `scipy`.
+
 
 # License #
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
