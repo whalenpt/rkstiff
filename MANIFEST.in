@@ -1,3 +1,4 @@
 include LICENSE
 recursive-include demos *.ipynb
 recursive-include images *.png
+prune demos/.ipynb_checkpoints
