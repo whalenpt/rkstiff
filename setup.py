@@ -9,8 +9,14 @@ setup(
         description='Runge-Kutta adaptive-step solvers for nonlinear PDEs',
         long_description=long_description,
         long_description_content_type="text/markdown",
+        url="https://github.com/whalenpt/rkstiff",
         author="Patrick Whalen",
         author_email="whalenpt@gmail.com",
+        extras_require= {
+            "dev": [
+                "pytest",
+                ],
+            },
         packages=["rkstiff"],
         package_dir={'.' : 'rkstiff'},
         setup_requires=["numpy","scipy"]
