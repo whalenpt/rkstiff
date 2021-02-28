@@ -98,7 +98,8 @@ t = np.array(solver.t)
 
 The grid module in rkstiff has several useful helper functions for setting up spatial and spectral grids. Here we used it to construct grids for a real-valued `u` utilizing the real-valued numpy Fourier transform (rfft). The results of the KS 'chaotic' propagation are shown below. 
 <br>
-<img width="300" src="images/KSfig.png">
+
+<img width="300" src="https://raw.githubusercontent.com/whalenpt/rkstiff/master/images/KSfig.png">
 
 # Installation #
 
