@@ -1,0 +1,33 @@
+package:
+  name: rkstiff
+  version : 0.0.1
+
+source: 
+  fn:  rkstiff-0.0.1.tar.gz
+  url: https://pypi.io/packages/source/r/rkstiff/rkstiff-0.0.1.tar.gz
+  md5: 8b02de783b1a6f80c292b3a6d7f65f1e
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - python
+  run:
+    - python
+    - numpy
+    - scipy
+
+test:
+  imports:
+    - rkstiff
+
+about: 
+  home: https://github.com/whalenpt/rkstiff 
+  license: MIT License 
+  summary: Runge-Kutta adaptive-step solvers for nonlinear PDEs
+
+
+
+
+
