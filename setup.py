@@ -5,13 +5,22 @@ with open("README.md","r") as f:
 
 setup(
         name='rkstiff',
-        version='0.0.0a',
+        version='0.0.0b',
         description='Runge-Kutta adaptive-step solvers for nonlinear PDEs',
         long_description=long_description,
         long_description_content_type="text/markdown",
         url="https://github.com/whalenpt/rkstiff",
         author="Patrick Whalen",
         author_email="whalenpt@gmail.com",
+        classifiers=[
+            "Programming Language :: Python :: 3",
+            "Programming Language :: Python :: 3.6",
+            "Programming Language :: Python :: 3.7",
+            "Programming Language :: Python :: 3.8",
+            "Programming Language :: Python :: 3.9",
+            "License :: OSI Approved :: MIT License",
+            "Operating System :: OS Independent",
+            ],
         extras_require= {
             "dev": [
                 "pytest","twine",
@@ -19,6 +28,6 @@ setup(
             },
         packages=["rkstiff"],
         package_dir={'.' : 'rkstiff'},
-        setup_requires=["numpy","scipy"],
-        install_requires=["numpy","scipy"]
+        setup_requires=["numpy>=1.14.0","scipy>=1.3.2"],
+        install_requires=["numpy>=1.14.0","scipy>=1.3.2"]
 )

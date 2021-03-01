@@ -48,7 +48,7 @@ def test_manydx_rfft():
     ux_approx = u.copy()
     ux_approx = dx_rfft(kx,ux_approx,8)
     rel_err = np.linalg.norm(ux_exact-ux_approx)/np.linalg.norm(ux_exact) 
-    assert rel_err < 1e-2
+    assert rel_err < 0.1
 
 
 
@@ -69,7 +69,7 @@ def test_manydx_fft():
     ux_approx = u.copy()
     ux_approx = dx_fft(kx,ux_approx,8)
     rel_err = np.linalg.norm(ux_exact-ux_approx)/np.linalg.norm(ux_exact) 
-    assert rel_err < 1e-2
+    assert rel_err < 0.1 
 
 def test_periodic_dx_fft():
     N = 100
