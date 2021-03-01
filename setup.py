@@ -5,7 +5,7 @@ with open("README.md","r") as f:
 
 setup(
         name='rkstiff',
-        version='0.0.1',
+        version='0.0.0a',
         description='Runge-Kutta adaptive-step solvers for nonlinear PDEs',
         long_description=long_description,
         long_description_content_type="text/markdown",
@@ -20,4 +20,5 @@ setup(
         packages=["rkstiff"],
         package_dir={'.' : 'rkstiff'},
         setup_requires=["numpy","scipy"]
+        install_requires=["numpy","scipy"]
 )
