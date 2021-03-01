@@ -19,6 +19,6 @@ setup(
             },
         packages=["rkstiff"],
         package_dir={'.' : 'rkstiff'},
-        setup_requires=["numpy","scipy"]
+        setup_requires=["numpy","scipy"],
         install_requires=["numpy","scipy"]
 )
