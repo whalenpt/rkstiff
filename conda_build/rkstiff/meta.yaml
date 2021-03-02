@@ -25,6 +25,8 @@ requirements:
     - scipy >=1.3.2
 
 test:
+  requires:
+    - pytest
   imports:
     - rkstiff
 
@@ -32,11 +34,11 @@ about:
   home: "https://github.com/whalenpt/rkstiff"
   license: MIT
   license_family: MIT
-  license_file: 
+  license_file: LICENSE
   summary: "Runge-Kutta adaptive-step solvers for nonlinear PDEs"
   doc_url: 
   dev_url: 
 
 extra:
   recipe-maintainers:
-    - your-github-id-here
+    - whalenpt 

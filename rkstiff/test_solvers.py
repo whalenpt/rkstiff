@@ -74,7 +74,7 @@ def kdv_soliton_setup():
     return u0FFT,L,NL,uexactFFT,h,steps
 
 def allen_cahn_setup():
-    N = 20
+    N = 20 
     a = -1; b = 1
     x,Dx = construct_x_Dx_cheb(N,a,b)
     epsilon = 0.01
@@ -114,8 +114,8 @@ def test_etd34():
 
 def test_etd34_nondiag():
     xint,u0int,w0int,L,NL = allen_cahn_setup()
-    solver = ETD34(linop=L,NLfunc=NL,epsilon=1e-4,contour_points=64,contour_radius=20,store_data=False)
-    wfint = solver.evolve(w0int,t0=0,tf=100)
+    solver = ETD34(linop=L,NLfunc=NL,epsilon=1e-3,contour_points=64,contour_radius=20,store_data=False)
+    wfint = solver.evolve(w0int,t0=0,tf=60)
     ufint = wfint.real + xint
     assert np.abs(u0int[0]-ufint[0]) < 0.01
     assert np.abs(u0int[7]-ufint[7]) > 1
@@ -138,8 +138,8 @@ def test_etd35():
 
 def test_etd35_nondiag():
     xint,u0int,w0int,L,NL = allen_cahn_setup()
-    solver = ETD35(linop=L,NLfunc=NL,epsilon=1e-4,contour_points=64,contour_radius=20,store_data=False)
-    wfint = solver.evolve(w0int,t0=0,tf=100)
+    solver = ETD35(linop=L,NLfunc=NL,epsilon=1e-4,contour_points=32,contour_radius=10,store_data=False)
+    wfint = solver.evolve(w0int,t0=0,tf=60)
     ufint = wfint.real + xint
     assert np.abs(u0int[0]-ufint[0]) < 0.01
     assert np.abs(u0int[7]-ufint[7]) > 1
@@ -154,14 +154,14 @@ def test_if34():
 def test_if34_nondiag():
     xint,u0int,w0int,L,NL = allen_cahn_setup()
     solver = IF34(linop=L,NLfunc=NL,epsilon=1e-3,store_data=False)
-    wfint = solver.evolve(w0int,t0=0,tf=100)
+    wfint = solver.evolve(w0int,t0=0,tf=60)
     ufint = wfint.real + xint
     assert np.abs(u0int[0]-ufint[0]) < 0.01
     assert np.abs(u0int[7]-ufint[7]) > 1
 
 def test_if45dp():
     u0FFT,L,NL = burgers_setup()
-    solver = IF45DP(linop=L,NLfunc=NL,epsilon=1e-4)
+    solver = IF45DP(linop=L,NLfunc=NL,epsilon=1e-3)
     uFFT = solver.evolve(u0FFT,t0=0,tf=0.85,store_data=False)
     rel_err = np.abs(np.linalg.norm(uFFT)-np.linalg.norm(u0FFT))/np.linalg.norm(u0FFT) 
     assert rel_err < 1e-2
