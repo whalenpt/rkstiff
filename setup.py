@@ -2,10 +2,11 @@ from setuptools import setup
 
 with open("README.md","r") as f:
     long_description = f.read()
+exec(open("rkstiff/version.py").read())
 
 setup(
         name='rkstiff',
-        version='0.0.1',
+        version=__version__,
         description='Runge-Kutta adaptive-step solvers for nonlinear PDEs',
         long_description=long_description,
         long_description_content_type="text/markdown",
