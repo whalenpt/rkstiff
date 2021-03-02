@@ -103,8 +103,7 @@ The grid module in rkstiff has several useful helper functions for setting up sp
 
 # Installation #
 
-From github download the rkstiff package.
-Once downloaded, one can install the package such that the modules can be imported outside the top level rkstiff folder. From the terminal the commands required are (assumes pip previously installed)
+From the github source
 ```bash
 git clone https://github.com/whalenpt/rkstiff.git
 cd rkstiff
@@ -112,25 +111,23 @@ python3 -m pip install numpy scipy
 python3 -m pip install .
 ```
 
-For use with Anaconda (see the <a href = https://conda.io/projects/conda/en/latest/user-guide/getting-started.html> Getting started with conda </a> guide), from the terminal
+PyPI install with a virtualenv (see the <a href = https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/> Python Packaging Authority </a> guide)
 ```bash
-git clone https://github.com/whalenpt/rkstiff.git
-cd rkstiff
-conda create --name rkstiff-env numpy scipy pip
-conda activate rkstiff-env
-pip install .
-```
-
-For use with a virtualenv the install looks like (see the <a href = https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/> Python Packaging Authority </a> guide)
-```bash
-git clone https://github.com/whalenpt/rkstiff.git
-cd rkstiff
 python3 -m venv env
 source env/bin/activate
-python3 -m pip install numpy scipy wheel
-python3 -m pip install .
+python3 -m pip install rkstiff
 ```
-The demos require installation of the python `matplotlib` and `jupyter` packages in addition to `numpy` and `scipy`.
+
+For use with Anaconda (see the <a href = https://conda.io/projects/conda/en/latest/user-guide/getting-started.html> Getting started with conda </a> and  <a href = https://conda.io/projects/conda-build/en/latest/user-guide/tutorials/build-pkgs-skeleton.html> Building conda packages with conda skeleton </a> guides), from the terminal
+```bash
+conda create --name rkstiff-env conda-build
+conda activate rkstiff-env
+conda skeleton pypi rkstiff
+conda-build rkstiff
+conda install --use-local [long_path_to_rkstiff_pkgversion_pyversion.tar.bz2]
+```
+
+The demos require installation of the python `matplotlib` and `jupyter` packages in addition to `numpy` and `scipy`. The tests require installation of the python package `pytest`. 
 
 
 # License #
