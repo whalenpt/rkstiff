@@ -8,4 +8,5 @@ demos/.ipynb_checkpoints
 .eggs
 tox.ini
 .tox
+conda_build/outputdir
 
