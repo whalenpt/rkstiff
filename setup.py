@@ -30,6 +30,5 @@ setup(
         packages=["rkstiff"],
         package_dir={'.' : 'rkstiff'},
         python_requires='>=3.6.0',
-        setup_requires=["numpy>=1.14.0","scipy>=1.3.2"],
         install_requires=["numpy>=1.14.0","scipy>=1.3.2"]
 )
