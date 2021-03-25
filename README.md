@@ -118,13 +118,11 @@ source env/bin/activate
 python3 -m pip install rkstiff
 ```
 
-For use with Anaconda (see the <a href = https://conda.io/projects/conda/en/latest/user-guide/getting-started.html> Getting started with conda </a> and  <a href = https://conda.io/projects/conda-build/en/latest/user-guide/tutorials/build-pkgs-skeleton.html> Building conda packages with conda skeleton </a> guides), from the terminal
+For use with Anaconda using the conda-forge channel (see the <a href = https://conda.io/projects/conda/en/latest/user-guide/getting-started.html> Getting started with conda guide</a>), from the terminal
 ```bash
-conda create --name rkstiff-env conda-build
+conda create --name rkstiff-env
 conda activate rkstiff-env
-conda skeleton pypi rkstiff
-conda-build rkstiff
-conda install --use-local [long_path_to_rkstiff_pkgversion_pyversion.tar.bz2]
+conda install rkstiff -c conda-forge
 ```
 
 The demos require installation of the python `matplotlib` and `jupyter` packages in addition to `numpy` and `scipy`. The tests require installation of the python package `pytest`. 
