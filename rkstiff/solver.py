@@ -65,7 +65,7 @@ class StiffSolverAS:
     step(u,h_suggest):
         Propagates a given array of u one step using an RK method for stiff PDEs. 
 
-    evolve(u,t0,tf,h_init=None,**kwargs)
+    evolve(u,t0,tf,h_init=None,store_data=True,store_freq=1)
         Propagates an initial value (array) of u given at time t0
         until a final time tf is reached using a RK method for stiff PDEs 
 
@@ -74,10 +74,11 @@ class StiffSolverAS:
 
     """
     MAX_LOOPS = 50
-    MAX_S = 4
-    MIN_S = 0.25
+    MAX_S = 4 # maximum step increase factor
+    MIN_S = 0.25 # minimum step decrease factor
     
-    def __init__(self,linop,NLfunc,**kwargs):
+    def __init__(self,linop,NLfunc,epsilon = 1e-4,incrF = 1.25, decrF = 0.85,\
+            safetyF = 0.8, adapt_cutoff = 0.01, minh = 1e-16):
         """
 
         linop : np.array
@@ -86,6 +87,12 @@ class StiffSolverAS:
 
         NLfunc : function 
             Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a complex or real-valued function.
+
+        epsilon : float
+            Relative error tolerance for system. Solver will suggest step sizes in an attempt to keep the two-norm relative error of the system
+            less than this value. This is used as a tuning parameter in the solver and the relative-error is not strictly
+            enforced! In general, smaller epsilon results in smaller relative-error but due to the nature of the solvers utilized, the
+            adaptive stepping is prone to be less than ideal and errors can often be larger than the specified epsilon tolerance level.
 
         incrF : float, > 1.0
             Increment factor for increasing the step size utilized in propagating a system. After each step in the propagation
@@ -100,12 +107,6 @@ class StiffSolverAS:
             h_opt < h_current, then the solver will suggest h_new = decrF*h_current as the next step size. This
             parameter is used such that very small changes to the step size are avoided and hence potentially expensive evaluations
             of the RK coefficients are avoided. 
-
-        epsilon : float
-            Relative error tolerance for system. Solver will suggest step sizes in an attempt to keep the two-norm relative error of the system
-            less than this value. This is used as a tuning parameter in the solver and the relative-error is not strictly
-            enforced! In general, smaller epsilon results in smaller relative-error but due to the nature of the solvers utilized, the
-            adaptive stepping is prone to be less than ideal and errors can often be larger than the specified epsilon tolerance level.
 
         safetyF : float
             Safety factor for adaptive stepping. The 'optimal' step size computed using the embedded RK methods is multiplied by
@@ -135,41 +136,29 @@ class StiffSolverAS:
                 raise ValueError('linop must be a square matrix')
             self._diag = False
 
-        self.incrF = 1.25
-        if 'incrF' in kwargs:
-            self.incrF = kwargs['incrF']
-            if self.incrF <= 1:
-                raise ValueError('incrF must be > 1 but is {}'.format(self.incrF))
+        self.epsilon = epsilon
+        if self.epsilon <= 0:
+            raise ValueError('epsilon must be positive but is {}'.format(self.epsilon))
+
+        self.incrF = incrF
+        if self.incrF <= 1.0:
+            raise ValueError('incrF must be > 1.0 but is {}'.format(self.incrF))
             
-        self.decrF = 0.85
-        if 'decrF' in kwargs:
-            self.decrF = kwargs['decrF']
-            if self.decrF >= 1:
-                raise ValueError('decrF must be < 1 but is {}'.format(self.decrF))
+        self.decrF = decrF
+        if self.decrF >= 1.0:
+            raise ValueError('decrF must be < 1.0 but is {}'.format(self.decrF))
             
-        self.epsilon = 1.0e-4
-        if 'epsilon' in kwargs:
-            self.epsilon = kwargs['epsilon']
-            if self.epsilon < 0:
-                raise ValueError('epsilon must be positive but is {}'.format(self.epsilon))
+        self.safetyF = safetyF
+        if self.safetyF > 1.0:
+            raise ValueError('safetyF must be <= 1.0 but is {}'.format(self.safetyF))
 
-        self.safetyF = 0.8
-        if 'safetyF' in kwargs:
-            self.safetyF = kwargs['safetyF']
-            if self.safetyF > 1:
-                raise ValueError('safetyF must be <= 1 but is {}'.format(self.safetyF))
+        self.adapt_cutoff = adapt_cutoff
+        if self.adapt_cutoff >= 1.0:
+            raise ValueError('adapt_cutoff must be < 1.0 but is {}'.format(self.adapt_cutoff))
 
-        self.adapt_cutoff = 0.01
-        if 'adapt_cutoff' in kwargs:
-            self.adapt_cutoff = kwargs['adapt_cutoff']
-            if self.adapt_cutoff >= 1:
-                raise ValueError('adapt_cutoff must be < 1 but is {}'.format(self.adapt_cutoff))
-
-        self.minh = 1.0e-16
-        if 'minh' in kwargs:
-            self.minh = kwargs['minh']
-            if self.minh <= 0:
-                raise ValueError('minh must be positive but is {}'.format(self.minh))
+        self.minh = minh
+        if self.minh <= 0:
+            raise ValueError('minh must be positive but is {}'.format(self.minh))
 
         self.__t0, self.__tf, self.__tc = 0,0,0
         self.__h_prev = 0.0
@@ -198,7 +187,7 @@ class StiffSolverAS:
     def _q(self):
         raise NotImplementedError
         
-    def step(self,u,h_suggest):
+    def step(self,u : np.ndarray,h_suggest : float):
         """ 
         Propagates a given array of u one step using an RK method for stiff PDEs. 
         
@@ -283,7 +272,7 @@ class StiffSolverAS:
         return h
 
 
-    def evolve(self,u,t0,tf,h_init=None,**kwargs):
+    def evolve(self,u,t0,tf,h_init=None,store_data : bool = True, store_freq : int = 1):
         """ 
         This function propagates an initial value (array) of u given at time t0
         until a final time tf is reached using a RK method for stiff PDEs 
@@ -309,12 +298,6 @@ class StiffSolverAS:
         
         self.reset()
         self.__t0, self.__tf, self.__tc = t0, tf, t0
-        store_data = True
-        if 'store_data' in kwargs:
-             store_data = kwargs['store_data']
-        store_freq = 1
-        if 'store_freq' in kwargs:
-            store_freq = kwargs['store_freq']
                    
         if store_data:
             self.t.append(t0)

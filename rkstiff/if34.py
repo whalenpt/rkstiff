@@ -149,7 +149,9 @@ class IF34(StiffSolverAS):
     minh : float 
     """
 
-    def __init__(self,linop,NLfunc,**kwargs):
+    def __init__(self,linop,NLfunc,epsilon : float = 1e-4,incrF : float = 1.25,\
+            decrF : float = 0.85, safetyF : float = 0.8, adapt_cutoff : float = 0.01,\
+            minh : float = 1e-16, diagonalize : bool = False):
         """
         INPUTS
         ______
@@ -168,12 +170,13 @@ class IF34(StiffSolverAS):
                         (see StiffSolverAS documentation from solver module)
         """
 
-        super().__init__(linop,NLfunc,**kwargs)
+        super().__init__(linop,NLfunc,epsilon=epsilon,incrF=incrF,decrF=decrF,\
+                safetyF=safetyF,adapt_cutoff=adapt_cutoff,minh=minh)
         self._method = None
         if self._diag:
             self._method = _IF34_Diagonal(linop,NLfunc)
         else:
-            if 'diagonalize' in kwargs and kwargs['diagonalize']:
+            if diagonalize:
                 self._method = _IF34_Diagonalized(linop,NLfunc)
             else:
                 self._method = _IF34_NonDiagonal(linop,NLfunc)

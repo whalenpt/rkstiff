@@ -25,7 +25,9 @@ class IF45DP(StiffSolverAS):
     adapt_cutoff : float
     minh : float 
     """
-    def __init__(self,linop,NLfunc,**kwargs):
+    def __init__(self,linop,NLfunc,epsilon : float = 1e-4,incrF : float = 1.25,\
+            decrF : float = 0.85, safetyF : float = 0.8, adapt_cutoff : float = 0.01,\
+            minh : float = 1e-16, diagonalize : bool = False):
         """
         INPUTS
         ______
@@ -44,7 +46,8 @@ class IF45DP(StiffSolverAS):
                         (see StiffSolverAS documentation from solver module)
         """
 
-        super().__init__(linop,NLfunc,**kwargs)
+        super().__init__(linop,NLfunc,epsilon=epsilon,incrF=incrF,decrF=decrF,\
+                safetyF=safetyF,adapt_cutoff=adapt_cutoff,minh=minh)
         if len(linop.shape) > 1:
             raise Exception('IF45DP only handles 1D linear operators (diagonal systems): try IF34,ETD34, or ETD35')
         self._EL15, self._EL310, self._EL45, self._EL89,self._EL = \

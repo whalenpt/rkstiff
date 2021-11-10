@@ -47,25 +47,23 @@ class ETDAS(StiffSolverAS):
 
     """
 
-    def __init__(self,linop,NLfunc,**kwargs):
-        super().__init__(linop,NLfunc,**kwargs)
-        self.modecutoff = 0.01
-        if 'modecutoff' in kwargs:
-            self.modecutoff = kwargs['modecutoff']
-            if (self.modecutoff > 1) or (self.modecutoff <= 0):
-                raise ValueError('modecutoff must be between 0 and 1 but is {}'.format(self.modecutoff))
-        self.contour_points = 32
-        if 'contour_points' in kwargs:
-            self.contour_points = kwargs['contour_points']
-            if not isinstance(self.contour_points,int):
-                raise TypeError('contour_points must be an integer but is {}'.format(self.contour_points))
-            if self.contour_points <= 1:
-                raise ValueError('contour_points must be an integer greater than 1 but is {}'.format(self.contour_points))
-        self.contour_radius = 1.0
-        if 'contour_radius' in kwargs:
-            self.contour_radius = kwargs['contour_radius']
-            if self.contour_radius <= 0:
-                raise ValueError('contour_radius must greater than 0 but is {}'.format(self.contour_radius))
+    def __init__(self,linop,NLfunc,epsilon=1e-4,incrF = 1.25, decrF = 0.85, safetyF = 0.8,\
+            adapt_cutoff = 0.01, minh = 1e-16, modecutoff = 0.01, contour_points = 32,\
+            contour_radius = 1.0):
+        super().__init__(linop,NLfunc,epsilon=epsilon,incrF=incrF,decrF=decrF,\
+                safetyF=safetyF,adapt_cutoff=adapt_cutoff,minh=minh)
+        self.modecutoff = modecutoff
+        if (self.modecutoff > 1.0) or (self.modecutoff <= 0):
+            raise ValueError('modecutoff must be between 0.0 and 1.0 but is {}'.format(self.modecutoff))
+        self.contour_points = contour_points
+        if not isinstance(self.contour_points,int):
+            raise TypeError('contour_points must be an integer but is {}'.format(self.contour_points))
+        if self.contour_points <= 1:
+            raise ValueError('contour_points must be an integer greater than 1 but is {}'.format(self.contour_points))
+
+        self.contour_radius = contour_radius
+        if self.contour_radius <= 0:
+            raise ValueError('contour_radius must greater than 0 but is {}'.format(self.contour_radius))
         self._h_coeff = None
         
 
