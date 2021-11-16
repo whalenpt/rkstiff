@@ -114,8 +114,8 @@ def test_etd34():
 
 def test_etd34_nondiag():
     xint,u0int,w0int,L,NL = allen_cahn_setup()
-    solver = ETD34(linop=L,NLfunc=NL,epsilon=1e-3,contour_points=64,contour_radius=20,store_data=False)
-    wfint = solver.evolve(w0int,t0=0,tf=60)
+    solver = ETD34(linop=L,NLfunc=NL,epsilon=1e-3,contour_points=64,contour_radius=20)
+    wfint = solver.evolve(w0int,t0=0,tf=60,store_data=False)
     ufint = wfint.real + xint
     assert np.abs(u0int[0]-ufint[0]) < 0.01
     assert np.abs(u0int[7]-ufint[7]) > 1
@@ -138,8 +138,8 @@ def test_etd35():
 
 def test_etd35_nondiag():
     xint,u0int,w0int,L,NL = allen_cahn_setup()
-    solver = ETD35(linop=L,NLfunc=NL,epsilon=1e-4,contour_points=32,contour_radius=10,store_data=False)
-    wfint = solver.evolve(w0int,t0=0,tf=60)
+    solver = ETD35(linop=L,NLfunc=NL,epsilon=1e-4,contour_points=32,contour_radius=10)
+    wfint = solver.evolve(w0int,t0=0,tf=60,store_data=False)
     ufint = wfint.real + xint
     assert np.abs(u0int[0]-ufint[0]) < 0.01
     assert np.abs(u0int[7]-ufint[7]) > 1
@@ -153,8 +153,8 @@ def test_if34():
 
 def test_if34_nondiag():
     xint,u0int,w0int,L,NL = allen_cahn_setup()
-    solver = IF34(linop=L,NLfunc=NL,epsilon=1e-3,store_data=False)
-    wfint = solver.evolve(w0int,t0=0,tf=60)
+    solver = IF34(linop=L,NLfunc=NL,epsilon=1e-3)
+    wfint = solver.evolve(w0int,t0=0,tf=60,store_data=False)
     ufint = wfint.real + xint
     assert np.abs(u0int[0]-ufint[0]) < 0.01
     assert np.abs(u0int[7]-ufint[7]) > 1

@@ -228,7 +228,10 @@ class ETD34(ETDAS):
     minh : float 
     """
     
-    def __init__(self,linop,NLfunc,**kwargs):
+    def __init__(self,linop,NLfunc,epsilon : float = 1e-4,incrF : float = 1.25,\
+            decrF : float = 0.85, safetyF : float = 0.8, adapt_cutoff : float = 0.01,\
+            minh : float = 1e-16, modecutoff : float = 0.01, contour_points : int = 32,
+            contour_radius : float = 1.0, diagonalize : bool = False):
         """
         INPUTS
         ______
@@ -249,13 +252,16 @@ class ETD34(ETDAS):
                         (see StiffSolverAS documentation from solver module)
 
         """
-        super().__init__(linop,NLfunc,**kwargs)
+        super().__init__(linop,NLfunc,epsilon=epsilon,incrF=incrF,decrF=decrF,\
+                safetyF=safetyF,adapt_cutoff=adapt_cutoff,minh=minh,\
+                modecutoff=modecutoff,contour_points=contour_points,\
+                contour_radius=contour_radius)
         self._method = None
         if self._diag:
             self._method = _ETD34_Diagonal(linop,NLfunc,self.contour_points,\
                     self.contour_radius,self.modecutoff)
         else:
-            if 'diagonalize' in kwargs and kwargs['diagonalize']:
+            if diagonalize:
                 self._method = _ETD34_Diagonalized(linop,NLfunc,self.contour_points,\
                         self.contour_radius,self.modecutoff)
             else:
