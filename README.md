@@ -133,6 +133,7 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 
 # Citation #
 
+```text
 @article{WHALEN2015579,
 title = {Exponential time-differencing with embedded Runge–Kutta adaptive step control},
 journal = {Journal of Computational Physics},
@@ -141,25 +142,8 @@ pages = {579-601},
 year = {2015},
 author = {P. Whalen and M. Brio and J.V. Moloney}
 }
+```
 
 # Contact #
 Patrick Whalen - whalenpt@gmail.com
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
