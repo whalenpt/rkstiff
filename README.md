@@ -131,6 +131,17 @@ The demos require installation of the python `matplotlib` and `jupyter` packages
 # License #
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
+# Citation #
+
+@article{WHALEN2015579,
+title = {Exponential time-differencing with embedded Runge–Kutta adaptive step control},
+journal = {Journal of Computational Physics},
+volume = {280},
+pages = {579-601},
+year = {2015},
+author = {P. Whalen and M. Brio and J.V. Moloney}
+}
+
 # Contact #
 Patrick Whalen - whalenpt@gmail.com
 
