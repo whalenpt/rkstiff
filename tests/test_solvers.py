@@ -5,6 +5,7 @@ from rkstiff.etd35 import ETD35
 from rkstiff.if34 import IF34
 from rkstiff.if45dp import IF45DP
 from rkstiff.etd import ETDAS
+from rkstiff.solver import StiffSolverAS
 import rkstiff.models as models
 import numpy as np
 import pytest
@@ -42,20 +43,24 @@ def test_solver_input():
 def test_etdsolver_input():
     # Test that modecutoff is valid
     with pytest.raises(ValueError):
-        solver = ETDAS(linop = Lstub(10),NLfunc=NLstub,modecutoff=1.2)
+        solver = ETD35(linop = Lstub(10),NLfunc=NLstub,modecutoff=1.2)
     with pytest.raises(ValueError):
-        solver = ETDAS(linop = Lstub(10),NLfunc=NLstub,modecutoff=0)
+        solver = ETD35(linop = Lstub(10),NLfunc=NLstub,modecutoff=0)
     # Test that contour_points is an integer
     with pytest.raises(TypeError):
-        solver = ETDAS(linop = Lstub(10),NLfunc=NLstub,contour_points = 12.2)
+        solver = ETD35(linop = Lstub(10),NLfunc=NLstub,contour_points = 12.2)
     # Test that contour_points is greater than 1
     with pytest.raises(ValueError):
-        solver = ETDAS(linop = Lstub(10),NLfunc=NLstub,contour_points = 1)
+        solver = ETD35(linop = Lstub(10),NLfunc=NLstub,contour_points = 1)
     # Test that contour_radius is positive
     with pytest.raises(ValueError):
-        solver = ETDAS(linop = Lstub(10),NLfunc=NLstub,contour_radius = 0)
+        solver = ETD35(linop = Lstub(10),NLfunc=NLstub,contour_radius = 0)
 
-
+def test_abc_error():
+    with pytest.raises(TypeError):
+        solver = ETDAS(linop = Lstub(10),NLfunc=NLstub)
+    with pytest.raises(TypeError):
+        solver = StiffSolverAS(linop = Lstub(10),NLfunc=NLstub)
 
 def kdv_soliton_setup():
     N = 256
