@@ -2,7 +2,7 @@
 import numpy as np
 import scipy.special as sp
 
-def construct_x_kx_rfft(N,a=0.0,b=2*np.pi):
+def construct_x_kx_rfft(N : int,a : float=0.0,b :float=2*np.pi):
     """ Constructs a uniform 1D spatial grid and rfft spectral wavenumbers for real-valued functions
     INPUTS
         N - even integer greater than 2
@@ -26,7 +26,7 @@ def construct_x_kx_rfft(N,a=0.0,b=2*np.pi):
     return x,kx
 
 
-def construct_x_kx_fft(N,a=0.0,b=2*np.pi):
+def construct_x_kx_fft(N : int,a : float=0.0,b : float=2*np.pi):
     """ Constructs a uniform 1D spatial grid and fft spectral wavenumbers for complex-valued functions
     INPUTS
         N - even integer greater than 2
@@ -49,7 +49,7 @@ def construct_x_kx_fft(N,a=0.0,b=2*np.pi):
     kx = 2*np.pi*np.fft.fftfreq(N,d=dx)
     return x,kx
 
-def construct_x_cheb(N,a=-1,b=1):
+def construct_x_cheb(N : int,a : float=-1.0,b : float=1.0):
     """ Constructs a 1D grid with Chebyshev spatial discretization 
 
     INPUTS
@@ -68,7 +68,7 @@ def construct_x_cheb(N,a=-1,b=1):
     x = a+(b-a)*(x+1)/2.
     return x
 
-def construct_x_Dx_cheb(N,a=-1,b=1):
+def construct_x_Dx_cheb(N : int,a : float=-1,b : float=1):
     """ Constructs a 1D grid with Chebyshev spatial discretization along with a
         differentiation matrix for functions sampled on this grid
 
@@ -215,7 +215,7 @@ class HankelTransform:
         self._setgrids(rmax)
         self._rmax = rmax 
 
-    def ht(self,f):
+    def ht(self,f : np.ndarray) -> np.ndarray: 
         """
         Computes a hankel transform of the function f sampled at the radial
         points specified by r
@@ -236,7 +236,7 @@ class HankelTransform:
 
         return self._scalefactor()*self._Y.dot(f)
 
-    def iht(self,g):
+    def iht(self,g : np.ndarray) -> np.ndarray: 
         """
         Computes an inverse hankel transform of the function g sampled at the spectral
         space points specified by kr
@@ -258,7 +258,7 @@ class HankelTransform:
         return self._Y.dot(g)/self._scalefactor()
 
 
-def mirrorGrid(r,u=None,axis=-1):
+def mirrorGrid(r : np.ndarray,u : np.ndarray=None,axis : int=-1):
     """
     Converts r grid from [0,rmax] interval to [-rmax,rmax] interval and adjusts
     function output u accordingly

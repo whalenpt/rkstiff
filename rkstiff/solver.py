@@ -272,7 +272,7 @@ class StiffSolverAS:
         return h
 
 
-    def evolve(self,u,t0,tf,h_init=None,store_data : bool = True, store_freq : int = 1):
+    def evolve(self,u,t0,tf,h_init=None,store_data : bool=True,store_freq : int=1):
         """ 
         This function propagates an initial value (array) of u given at time t0
         until a final time tf is reached using a RK method for stiff PDEs 
