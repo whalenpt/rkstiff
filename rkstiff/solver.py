@@ -1,5 +1,7 @@
 
 import numpy as np
+from typing import Tuple,Optional
+
 
 class StiffSolverAS:
     """
@@ -187,7 +189,7 @@ class StiffSolverAS:
     def _q(self):
         raise NotImplementedError
         
-    def step(self,u : np.ndarray,h_suggest : float):
+    def step(self,u : np.ndarray,h_suggest : float) -> Tuple[np.ndarray,float,float]:
         """ 
         Propagates a given array of u one step using an RK method for stiff PDEs. 
         
@@ -272,7 +274,9 @@ class StiffSolverAS:
         return h
 
 
-    def evolve(self,u,t0,tf,h_init=None,store_data : bool=True,store_freq : int=1):
+    def evolve(self,u : np.ndarray,t0 : float,tf : float,\
+            h_init : Optional[float]=None,\
+            store_data : bool=True, store_freq : int=1) -> np.ndarray:
         """ 
         This function propagates an initial value (array) of u given at time t0
         until a final time tf is reached using a RK method for stiff PDEs 
