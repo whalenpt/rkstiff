@@ -67,17 +67,17 @@ def kdv_soliton_setup():
     N = 256
     a,b = -30,30
     x,kx = construct_x_kx_rfft(N,a,b)
-    A, x0, t0, tf = 1., -5., 0, 10.
+    A, x0, t0, tf = 1., -5., 0, 5.
 
     h = 0.025
-    steps = 400
+    steps = 200
 
     u0 = models.kdvSoliton(x,A=A,x0=x0,t=t0)
     u0FFT = np.fft.rfft(u0)
     uexactFFT = np.fft.rfft(models.kdvSoliton(x,A=A,x0=x0,t=tf))
     L,NL = models.kdvOps(kx)
 
-    return u0FFT,L,NL,uexactFFT,h,steps
+    return u0FFT,L,NL,uexactFFT,h,steps,tf
 
 def allen_cahn_setup():
     N = 20 
@@ -103,7 +103,7 @@ def burgers_setup():
     return u0FFT,L,NL
 
 def test_etd34():
-    u0FFT,L,NL,uexactFFT,h,steps = kdv_soliton_setup()
+    u0FFT,L,NL,uexactFFT,h,steps,tf = kdv_soliton_setup()
     uFFT = u0FFT.copy()
     solver = ETD34(linop=L,NLfunc=NL,epsilon=1e-1)
     for _ in range(steps):
@@ -114,7 +114,7 @@ def test_etd34():
 
     solver.reset()
     solver.epsilon = 1e-6
-    uFFT = solver.evolve(u0FFT,t0=0,tf=10,store_data=False)
+    uFFT = solver.evolve(u0FFT,t0=0,tf=tf,store_data=False)
     rel_err = np.linalg.norm(uFFT-uexactFFT)/np.linalg.norm(uexactFFT)
     assert rel_err < 1e-5
 
@@ -127,7 +127,7 @@ def test_etd34_nondiag():
     assert np.abs(u0int[7]-ufint[7]) > 1
 
 def test_etd35():
-    u0FFT,L,NL,uexactFFT,h,steps = kdv_soliton_setup()
+    u0FFT,L,NL,uexactFFT,h,steps,tf = kdv_soliton_setup()
     uFFT = u0FFT.copy()
     solver = ETD35(linop=L,NLfunc=NL,epsilon=1e-1)
     for _ in range(steps):
@@ -138,7 +138,7 @@ def test_etd35():
 
     solver.reset()
     solver.epsilon = 1e-6
-    uFFT = solver.evolve(u0FFT,t0=0,tf=10,store_data=False)
+    uFFT = solver.evolve(u0FFT,t0=0,tf=tf,store_data=False)
     rel_err = np.linalg.norm(uFFT-uexactFFT)/np.linalg.norm(uexactFFT)
     assert rel_err < 1e-5
 
@@ -174,7 +174,7 @@ def test_if45dp():
 
 
 def test_etd4():
-    u0FFT,L,NL,uexactFFT,h,steps = kdv_soliton_setup()
+    u0FFT,L,NL,uexactFFT,h,steps,tf = kdv_soliton_setup()
     uFFT = u0FFT.copy()
     solver = ETD4(linop=L,NLfunc=NL)
     for _ in range(steps):
@@ -183,7 +183,7 @@ def test_etd4():
     assert rel_err < 1e-6
 
     solver.reset()
-    uFFT = solver.evolve(u0FFT,t0=0,tf=10,h=h,store_data=False)
+    uFFT = solver.evolve(u0FFT,t0=0,tf=tf,h=h,store_data=False)
     rel_err = np.linalg.norm(uFFT-uexactFFT)/np.linalg.norm(uexactFFT)
     assert rel_err < 1e-6
 
