@@ -337,5 +337,154 @@ class StiffSolverAS(ABC):
         return u
 
 
+class StiffSolverCS(ABC):
+    """
+    Base class for a constant-step Runge-Kutta solver for stiff systems of the type dtU = LU + NL(U),
+    where L is a linear operator and NL is a non-linear function.
 
+    ATTRIBUTES
+    __________
+
+    linop : np.array
+        Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D numpy array (matrix)
+        or a 1D array (diagonal system). L can be either real-valued or complex-valued.
+
+    NLfunc : function 
+        Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a complex or real-valued function.
+
+    u : list
+        List of np.arrays corresponding to the propagated U in the system dtU = LU + NL(U) using the evolve function
+
+    t : list
+        List of times corresponding to the propagated U in the system dtU = LU + NL(U) using the evolve function
+
+    METHODS
+    _______
+
+    step(u,h):
+        Propagates a given array of u, taking a step of size h, using an RK method for stiff PDEs. 
+
+    evolve(u,t0,tf,h,store_data=True,store_freq=1)
+        Propagates an initial value (array) of u given at time t0
+        until a final time tf is reached using a RK method for stiff PDEs.  
+        Solver will always take a step of size h
+
+    reset()
+        Resets solver including erasing stored variables such as self.t, self.u, and self.logs
+    """
+    
+    def __init__(self,linop,NLfunc):
+        """
+
+        linop : np.array
+            Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D numpy array (matrix)
+            or a 1D array (diagonal system). L can be either real-valued or complex-valued.
+
+        NLfunc : function 
+            Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a complex or real-valued function.
+
+        """
+
+        self.linop = linop
+        self.NLfunc = NLfunc
+        self.t, self.u = [], []
+
+        dims = linop.shape
+        self._diag = True
+        if len(dims) > 2:
+            raise ValueError('linop must be a 1D or 2D array')
+        elif len(dims) == 2:
+            if (dims[0] != dims[1]):
+                raise ValueError('linop must be a square matrix')
+            self._diag = False
+
+        self.__t0, self.__tf, self.__tc = 0,0,0
+        self.t, self.u, self.logs = [], [], []
+
+    def reset(self):
+        """ Resets solver to its initial state (such that its ready to call the functions evolve 
+            or step on a new input). Erases stored variables such as self.t, self.u, and self.logs.
+        """
+        self.t, self.u, self.logs = [], [], []
+        self.__t0, self.__tf, self.__tc = 0,0,0
+        self._reset()
+
+    # reset solver dependent variables of the subclass
+    @abstractmethod
+    def _reset():
+        pass
+    
+    # update RK stages, returns u_{n+1} given u_{n}, to be overwritten by subclass
+    @abstractmethod
+    def _updateStages(self,u,h):
+        pass
+        
+    def step(self,u : np.ndarray, h : float) -> np.ndarray:
+        """ 
+        Propagates a given array of u one step using an RK method for stiff PDEs. 
+        
+        INPUTS:
+            u : np.array
+                input to propagate
+            h : float
+                step size
+
+        OUTPUTS:
+            unew : np.array
+                result of input u propagated one step in the RK algorithm
+        """
+        
+        assert h >= 0.0
+        unew = self._updateStages(u,h)
+        return unew
+        
+    def evolve(self,u : np.ndarray,t0 : float,tf : float, h : float,\
+            store_data : bool=True, store_freq : int=1) -> np.ndarray:
+        """ 
+        This function propagates an initial value (array) of u given at time t0
+        until a final time tf is reached using a RK method for stiff PDEs 
+        
+        INPUTS:
+            u : np.array
+                initial value input 
+            t0 : float
+                initial time at which u is evaluated
+            tf : float
+                specified end time, propagation stops when the current time is
+                greater than or equal to this value
+            h : float
+                step size for RK method
+            store_data : bool, optional 
+                value that determines whether to keep track of the propagation array u
+                at each step of the RK method. Values stored in self.u and self.t
+            store_freq : int, optional 
+                store propagation data in self.t and self.u after every [store_freq] step is taken
+        OUTPUTS:
+            u : np.array 
+                final value of the input propagated from t0 to tf 
+            tf : float
+                actual final time propagated (may be greater than specified tf)
+        """
+        
+        self.reset()
+        self.__t0, self.__tf, self.__tc = t0, tf, t0
+                   
+        if store_data:
+            self.t.append(t0)
+            self.u.append(u)
+        
+        # Make sure step size isn't larger than entire propagation time
+        if self.__tc+h > self.__tf:
+            raise ValueError('Reduce step size h, it needs to be less than or equal to tf-t0')
+        
+        step_count = 0
+        while self.__tc < self.__tf:
+            u = self.step(u,h)
+            self.__tc += h
+            step_count += 1
+            if store_data and (step_count % store_freq == 0):
+                self.t.append(self.__tc)
+                self.u.append(u)
+        
+        return u
 

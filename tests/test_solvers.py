@@ -5,6 +5,7 @@ from rkstiff.etd35 import ETD35
 from rkstiff.if34 import IF34
 from rkstiff.if45dp import IF45DP
 from rkstiff.etd import ETDAS
+from rkstiff.etd4 import ETD4
 from rkstiff.solver import StiffSolverAS
 import rkstiff.models as models
 import numpy as np
@@ -170,5 +171,21 @@ def test_if45dp():
     uFFT = solver.evolve(u0FFT,t0=0,tf=0.85,store_data=False)
     rel_err = np.abs(np.linalg.norm(uFFT)-np.linalg.norm(u0FFT))/np.linalg.norm(u0FFT) 
     assert rel_err < 1e-2
+
+
+def test_etd4():
+    u0FFT,L,NL,uexactFFT,h,steps = kdv_soliton_setup()
+    uFFT = u0FFT.copy()
+    solver = ETD4(linop=L,NLfunc=NL)
+    for _ in range(steps):
+        uFFT = solver.step(uFFT,h)
+    rel_err = np.linalg.norm(uFFT-uexactFFT)/np.linalg.norm(uexactFFT)
+    assert rel_err < 1e-6
+
+    solver.reset()
+    uFFT = solver.evolve(u0FFT,t0=0,tf=10,h=h,store_data=False)
+    rel_err = np.linalg.norm(uFFT-uexactFFT)/np.linalg.norm(uexactFFT)
+    assert rel_err < 1e-6
+
 
 
