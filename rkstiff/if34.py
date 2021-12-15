@@ -1,6 +1,7 @@
 
 from rkstiff.solver import StiffSolverAS
 import numpy as np
+from typing import Callable
 from scipy.linalg import expm
 
 class _IF34_Diagonal:
@@ -149,7 +150,8 @@ class IF34(StiffSolverAS):
     minh : float 
     """
 
-    def __init__(self,linop,NLfunc,epsilon : float = 1e-4,incrF : float = 1.25,\
+    def __init__(self,linop : np.ndarray,NLfunc : Callable[[np.ndarray],np.ndarray],\
+            epsilon : float = 1e-4,incrF : float = 1.25,\
             decrF : float = 0.85, safetyF : float = 0.8, adapt_cutoff : float = 0.01,\
             minh : float = 1e-16, diagonalize : bool = False):
         """
