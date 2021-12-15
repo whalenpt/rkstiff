@@ -78,7 +78,7 @@ class _ETD34_Diagonal:
         # Use First is same as last principle (FSAL) -> k5 stage is input u for next step
         if accept:
             self._NL1 = self._NL5.copy()    
-            
+        # If not accept, then step failed, reuse previously computed N1 
         self._k = self._EL2*u + self._a21*self._NL1
         self._NL2 = self.NLfunc(self._k)
         self._k = self._EL2*u + self._a31*self._NL1 + self._a32*self._NL2
