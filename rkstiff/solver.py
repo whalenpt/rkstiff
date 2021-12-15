@@ -1,9 +1,10 @@
 
+from abc import ABC,abstractmethod
 import numpy as np
 from typing import Tuple,Optional
 
 
-class StiffSolverAS:
+class StiffSolverAS(ABC):
     """
     Base class for an adaptive-step Runge-Kutta solver for stiff systems of the type dtU = LU + NL(U),
     where L is a linear operator and NL is a non-linear function.
@@ -178,16 +179,19 @@ class StiffSolverAS:
         self._reset()
 
     # reset solver dependent variables of the subclass
+    @abstractmethod
     def _reset():
-        raise NotImplementedError
+        pass
     
     # update RK stages, returns u_{n+1} given u_{n}, to be overwritten by subclass
+    @abstractmethod
     def _updateStages(self,u,h):
-        raise NotImplementedError
+        pass
         
     # q value in computation of suggested step size, to be overwritten by subclass
+    @abstractmethod
     def _q(self):
-        raise NotImplementedError
+        pass
         
     def step(self,u : np.ndarray,h_suggest : float) -> Tuple[np.ndarray,float,float]:
         """ 
