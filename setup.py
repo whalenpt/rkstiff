@@ -7,7 +7,7 @@ exec(open("rkstiff/version.py").read())
 setup(
         name='rkstiff',
         version=__version__,
-        description='Runge-Kutta adaptive-step solvers for nonlinear PDEs',
+        description='Runge-Kutta adaptive-step and constant-step solvers for nonlinear PDEs',
         long_description=long_description,
         long_description_content_type="text/markdown",
         url="https://github.com/whalenpt/rkstiff",
