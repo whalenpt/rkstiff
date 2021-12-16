@@ -1,9 +1,8 @@
 
 # rkstiff #
 
-Runge-Kutta nonlinear-PDE solver for equations of the form 
-<code>u<sub>t</sub> = Lu + NL(u)</code> with adaptive-step
-Runge-Kutta methods using either integrating factor (IF) or exponential time-differencing (ETD).
+Runge-Kutta integrating factor (IF) and exponential time-differencing (ETD) methods
+for solving nonlinear-PDE's of the form <code>u<sub>t</sub> = Lu + NL(u)</code>. 
 Some examples of non-linear PDES that can be numerically solved using these methods are:
 - Nonlinear Schrodinger equation (NLS)
 - Kuramoto-Sivashinsky (KS)
@@ -19,10 +18,15 @@ options provided in this package are
 3. IF34 (4<sup>th</sup> order IF with 3<sup>rd</sup> order embedding)
 4. IF45DP (5<sup>th</sup> order IF with 4<sup>th</sup> order embedding) 
 
+The constant step solver options provided are
+1. ETD4 (4<sup>th</sup> order ETD - Krogstad method)
+2. ETD5 (5<sup>th</sup> order ETD - same as the 5th order method in ETD35)
+3. IF4 (4<sup>th</sup> order IF - same as the 4th order method in IF34)
+
 In general, one should
 prefer ETD35 as it often has the best speed and stability for diagonal systems or diagonalized
 non-diagonal systems. Because the RK coefficients can be costly
-to compute IF34 can also be a good option in certain cases. 
+to compute, IF34 or constant step methods may be preferable in certain settings.
 A detailed discussion of these solvers is provided in the journal article  <a href = https://www.sciencedirect.com/science/article/pii/S0021999114006743> Exponential time-differencing with embedded Runge–Kutta adaptive step control </a>.
 
 # Dependencies
