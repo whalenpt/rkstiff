@@ -86,47 +86,6 @@ class _ETD4_Diagonal:
         self._NL1 = self.NLfunc(self._k)
         return self._k
 
-class _ETD4_Diagonalized(_ETD4_Diagonal):
-    """
-    ETD4 non-diagonal system with eigenvector diagonalization strategy for ETD4 solver 
-    """
-    def __init__(self,linop,NLfunc,contourM,contourR,modecutoff):
-        super().__init__(linop,NLfunc,contourM,contourR,modecutoff)
-        if len(linop.shape) == 1:
-            raise Exception('Cannot diagonalize a 1D system')
-        linop_cond = np.linalg.cond(linop)
-        if linop_cond > 1e16:
-            raise Exception('Cannot diagonalize a non-invertible linear operator L')
-        if linop_cond > 1000:
-            print('''Warning: linear matrix array has a large condition number of {:.2f}, 
-            method may be unstable'''.format(linop_cond))
-        self._eig_vals, self._S = np.linalg.eig(linop)
-        self._Sinv = np.linalg.inv(self._S)
-        self._v = np.zeros(linop.shape[0])
-        
-    def _updateCoeffs(self,h):
-        z = h*self._eig_vals
-        self._updateCoeffsDiagonal(h,z)        
-        
-    def _N1_init(self,u):
-        self._NL1 = self._Sinv.dot(self.NLfunc(u))
-        self._v = self._Sinv.dot(u)
-    
-    def _updateStages(self,u,h):        
-        # Use First is same as last principle (FSAL) 
-        self._v = self._Sinv.dot(u)
-        self._k = self._EL2*self._v + self._a21*self._NL1
-        self._NL2 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
-        self._k = self._EL2*self._v + self._a31*self._NL1 + self._a32*self._NL2
-        self._NL3 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
-        self._k = self._EL*self._v + self._a41*self._NL1 + self._a43*self._NL3
-        self._NL4 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
-        self._k = self._EL*self._v + self._b1*self._NL1 + self._b2*(self._NL2+self._NL3) \
-                + self._b4*self._NL4
-        self._NL1 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
-        return self._S.dot(self._k)
-
-
 class _ETD4_NonDiagonal:
     """
     ETD4 non-diagonal system strategy for ETD4 solver 
@@ -209,8 +168,7 @@ class ETD4(ETDCS):
     """
     
     def __init__(self,linop : np.ndarray,NLfunc : Callable[[np.ndarray],np.ndarray],\
-            modecutoff : float = 0.01, contour_points : int = 32,\
-            contour_radius : float = 1.0, diagonalize : bool = False):
+            modecutoff : float = 0.01, contour_points : int = 32,contour_radius : float = 1.0):
         """
         INPUTS
         ______
@@ -235,12 +193,8 @@ class ETD4(ETDCS):
             self._method = _ETD4_Diagonal(linop,NLfunc,self.contour_points,\
                     self.contour_radius,self.modecutoff)
         else:
-            if diagonalize:
-                self._method = _ETD4_Diagonalized(linop,NLfunc,self.contour_points,\
-                        self.contour_radius,self.modecutoff)
-            else:
-                self._method = _ETD4_NonDiagonal(linop,NLfunc,self.contour_points,\
-                        self.contour_radius)
+            self._method = _ETD4_NonDiagonal(linop,NLfunc,self.contour_points,\
+                    self.contour_radius)
         self.__N1_init = False
 
     def _reset(self):
