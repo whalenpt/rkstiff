@@ -5,10 +5,7 @@ from typing import Callable
 from scipy.linalg import expm
 
 class _ETD4_Diagonal:
-    """
-    ETD4 diagonal system strategy for ETD4 solver 
-    """
-
+    """ ETD4 diagonal system strategy for ETD4 solver """
     def __init__(self,linop,NLfunc,contourM,contourR,modecutoff):
         self.linop = linop
         self.NLfunc = NLfunc
@@ -25,9 +22,6 @@ class _ETD4_Diagonal:
         
     def _updateCoeffs(self,h):
         z = h*self.linop
-        self._updateCoeffsDiagonal(h,z)
-        
-    def _updateCoeffsDiagonal(self,h,z):   
         self._EL = np.exp(z)
         self._EL2 = np.exp(z/2)
       
@@ -73,7 +67,7 @@ class _ETD4_Diagonal:
     def _N1_init(self,u):
         self._NL1 = self.NLfunc(u)
         
-    def _updateStages(self,u,h):        
+    def _updateStages(self,u):        
         # Use First is same as last principle (FSAL) 
         self._k = self._EL2*u + self._a21*self._NL1
         self._NL2 = self.NLfunc(self._k)
@@ -87,9 +81,7 @@ class _ETD4_Diagonal:
         return self._k
 
 class _ETD4_NonDiagonal:
-    """
-    ETD4 non-diagonal system strategy for ETD4 solver 
-    """
+    """ ETD4 non-diagonal system strategy for ETD4 solver """
     def __init__(self,linop,NLfunc,contourM,contourR):
         self.linop = linop
         self.NLfunc = NLfunc
@@ -133,8 +125,7 @@ class _ETD4_NonDiagonal:
     def _N1_init(self,u):
         self._NL1 = self.NLfunc(u)
         
-    def _updateStages(self,u,h):        
-        # Use First is same as last principle (FSAL) 
+    def _updateStages(self,u):        
         self._k = self._EL2.dot(u) + self._a21.dot(self._NL1)
         self._NL2 = self.NLfunc(self._k)
         self._k = self._EL2.dot(u) + self._a31.dot(self._NL1) + self._a32.dot(self._NL2)
@@ -143,7 +134,7 @@ class _ETD4_NonDiagonal:
         self._NL4 = self.NLfunc(self._k)
         self._k = self._EL.dot(u) + self._b1.dot(self._NL1) + self._b2.dot(self._NL2+self._NL3) \
                 + self._b4.dot(self._NL4)
-        self._NL1 = self.NLfunc(self._k)
+        self._NL1 = self.NLfunc(self._k) # Use First is same as last principle (FSAL) 
         return self._k
 
 class ETD4(ETDCS):
@@ -198,12 +189,12 @@ class ETD4(ETDCS):
         self.__N1_init = False
 
     def _reset(self):
-        #Resets solver to its initial state 
+        """ Resets solver to its initial state """
         self.__N1_init = False
         self._h_coeff = None
 
     def _updateCoeffs(self,h):
-        # Update coefficients if step size h changed
+        """ Update coefficients if step size h changed """
         if h == self._h_coeff:
             return
         self._h_coeff = h
@@ -211,10 +202,10 @@ class ETD4(ETDCS):
         self.logs.append("ETD4 coefficients updated")
         
     def _updateStages(self,u,h):
-        # Computes u_{n+1} from u_{n} in one RK passthrough
+        """ Computes u_{n+1} from u_{n} in one RK passthrough """
         self._updateCoeffs(h)
         if not self.__N1_init:
             self._method._N1_init(u)
             self.__N1_init = True
-        return self._method._updateStages(u,h)
+        return self._method._updateStages(u)
 
