@@ -111,7 +111,6 @@ From the github source
 ```bash
 git clone https://github.com/whalenpt/rkstiff.git
 cd rkstiff
-python3 -m pip install numpy scipy
 python3 -m pip install .
 ```
 
@@ -129,8 +128,11 @@ conda activate rkstiff-env
 conda install rkstiff -c conda-forge
 ```
 
-The demos require installation of the python `matplotlib` and `jupyter` packages in addition to `numpy` and `scipy`. The tests require installation of the python package `pytest`. 
-
+The demos require installation of the python `matplotlib` and `jupyter` packages in addition to `numpy` and `scipy`. The tests require installation of the python package `pytest`. These may be installed seperately or by using 
+```bash
+python3 -m pip install rkstiff[demo]
+python3 -m pip install rkstiff[test]
+```
 
 # License #
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
