@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["rkstiff"]
+
+[project]
+name = "rkstiff"
+authors = [{name = "Patrick Whalen", email = "whalenpt@gmail.com"}]
+description = "'Runge-Kutta adaptive-step and constant-step solvers for nonlinear PDEs'"
+version = "0.1.0"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.6"
+keywords = ["ETD", "Runge-Kutta", "Nonlinear PDEs"]
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "numpy >=1.14.0",
+    "scipy >=1.3.2"
+]
+
+[project.optional-dependencies]
+demo = [
+    "matplotlib",
+    "jupyter"
+]
+dev = ["twine"]
+test = ["pytest"]
+
+[project.urls]
+homepage = "https://github.com/whalenpt/rkstiff"
+documentation = "https://github.com/whalenpt/rkstiff"
+repository = "https://github.com/whalenpt/rkstiff"
