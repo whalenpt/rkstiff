@@ -130,8 +130,8 @@ conda install rkstiff -c conda-forge
 
 The demos require installation of the python `matplotlib` and `jupyter` packages in addition to `numpy` and `scipy`. The tests require installation of the python package `pytest`. These may be installed seperately or by using 
 ```bash
-python3 -m pip install rkstiff[demo]
-python3 -m pip install rkstiff[test]
+python3 -m pip install 'rkstiff[demo]'
+python3 -m pip install 'rkstiff[test]'
 ```
 
 # License #
