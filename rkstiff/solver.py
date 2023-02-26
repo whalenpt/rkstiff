@@ -5,60 +5,79 @@ from typing import Tuple, Optional
 
 class StiffSolverAS(ABC):
     """
-    Base class for an adaptive-step Runge-Kutta solver for stiff systems of the type dtU = LU + NL(U),
-    where L is a linear operator and NL is a non-linear function.
+    Base class for an adaptive-step Runge-Kutta solver for stiff systems of the
+    type dtU = LU + NL(U), where L is a linear operator and NL is a non-linear
+    function.
 
     ATTRIBUTES
     __________
 
     linop : np.array
-        Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D numpy array (matrix)
-        or a 1D array (diagonal system). L can be either real-valued or complex-valued.
+        Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D
+        numpy array (matrix) or a 1D array (diagonal system). L can be either
+        real-valued or complex-valued.
 
     NLfunc : function
-        Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a complex or real-valued function.
+        Nonlinear function (NL(U)) in the system dtU = LU + NL(U).
+        Can be a complex or real-valued function.
 
     u : list
-        List of np.arrays corresponding to the propagated U in the system dtU = LU + NL(U) using the evolve function
+        List of np.arrays corresponding to the propagated U in the system
+        dtU = LU + NL(U) using the evolve function
 
     t : list
-        List of times corresponding to the propagated U in the system dtU = LU + NL(U) using the evolve function
+        List of times corresponding to the propagated U in the system
+        dtU = LU + NL(U) using the evolve function
 
     logs : list
         List of log messages
 
     incrF : float, > 1.0
-        Increment factor for increasing the step size utilized in propagating a system. After each step in the propagation
-        a 'optimal' step size of h_opt is computed and compared vs the current step size h_current. If h_opt > incrF*h_current,
-        then the solver will suggest h_opt as the next step size, otherwise it will continue using the current step size. This
-        parameter is used such that very small changes to the step size are avoided and hence potentially expensive evaluations
-        of the RK coefficients are avoided.
+        Increment factor for increasing the step size utilized in propagating a
+        system. After each step in the propagation a 'optimal' step size of
+        h_opt is computed and compared vs the current step size h_current. If
+        h_opt > incrF*h_current, then the solver will suggest h_opt as the next
+        step size, otherwise it will continue using the current step size. This
+        parameter is used such that very small changes to the step size are
+        avoided and hence potentially expensive evaluations of the RK
+        coefficients are avoided.
 
     decrF : float, < 1.0
-        Decrement factor for decreasing the step size utilized in propagating a system. After each step in the propagation
-        a 'optimal' step size of h_opt is computed and compared vs the current step size h_current. If h_opt > decrF*h_current and
-        h_opt < h_current, then the solver will suggest h_new = decrF*h_current as the next step size. This
-        parameter is used such that very small changes to the step size are avoided and hence potentially expensive evaluations
-        of the RK coefficients are avoided.
+        Decrement factor for decreasing the step size utilized in propagating
+        a system. After each step in the propagation a 'optimal' step size of
+        h_opt is computed and compared vs the current step size h_current. If
+        h_opt > decrF*h_current and h_opt < h_current, then the solver will
+        suggest h_new = decrF*h_current as the next step size. This parameter
+        is used such that very small changes to the step size are avoided and
+        hence potentially expensive evaluations of the RK coefficients are
+        avoided.
 
     epsilon : float
-        Relative error tolerance for system. Solver will suggest step sizes in an attempt to keep the two-norm relative error of the system
-        less than this value. This is used as a tuning parameter in the solver and the relative-error is not strictly
-        enforced! In general, smaller epsilon results in smaller relative-error but due to the nature of the solvers utilized, the
-        adaptive stepping is prone to be less than ideal and errors can often be larger than the specified epsilon tolerance level.
+        Relative error tolerance for system. Solver will suggest step sizes in
+        an attempt to keep the two-norm relative error of the system less than
+        this value. This is used as a tuning parameter in the solver and the
+        relative-error is not strictly enforced! In general, smaller epsilon
+        results in smaller relative-error but due to the nature of the solvers
+        utilized, the adaptive stepping is prone to be less than ideal and
+        errors can often be larger than the specified epsilon tolerance level.
 
     safetyF : float
-        Safety factor for adaptive stepping. The 'optimal' step size computed using the embedded RK methods is multiplied by
-        this factor to try to enforce the relative-error to be below the epsilon relative-error threshold. The relative-error
-        computed for these solvers based on embedded methods is an inaccurate estimate and so this saftey factor can be used
-        to tune the system error to be more inline with actual errors.
+        Safety factor for adaptive stepping. The 'optimal' step size computed
+        using the embedded RK methods is multiplied by this factor to try to
+        enforce the relative-error to be below the epsilon relative-error
+        threshold.  The relative-error computed for these solvers based on
+        embedded methods is an inaccurate estimate and so this saftey factor
+        can be used to tune the system error to be more inline with actual
+        errors.
 
     adapt_cutoff : float < 1
-        Limits values used in the computation of the suggested step size to those with |u| > adapt_cutoff*max(|u|). To include all
-        values in the calculation of step size: set this to a very small number.
+        Limits values used in the computation of the suggested step size to
+        those with |u| > adapt_cutoff*max(|u|). To include all values in the
+        calculation of step size: set this to a very small number.
 
     minh : float
-        Minimum step size that can be taken by the solver before throwing an exception
+        Minimum step size that can be taken by the solver before throwing an
+        exception
 
 
     METHODS
@@ -72,7 +91,8 @@ class StiffSolverAS(ABC):
         until a final time tf is reached using a RK method for stiff PDEs
 
     reset()
-        Resets solver including erasing stored variables such as self.t, self.u, and self.logs
+        Resets solver including erasing stored variables such as self.t,
+        self.u, and self.logs
 
     """
 
@@ -94,45 +114,61 @@ class StiffSolverAS(ABC):
         """
 
         linop : np.array
-            Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D numpy array (matrix)
-            or a 1D array (diagonal system). L can be either real-valued or complex-valued.
+            Linear operator (L) in the system dtU = LU + NL(U). Can be either a
+            2D numpy array (matrix) or a 1D array (diagonal system). L can be
+            either real-valued or complex-valued.
 
         NLfunc : function
-            Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a complex or real-valued function.
+            Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a
+            complex or real-valued function.
 
         epsilon : float
-            Relative error tolerance for system. Solver will suggest step sizes in an attempt to keep the two-norm relative error of the system
-            less than this value. This is used as a tuning parameter in the solver and the relative-error is not strictly
-            enforced! In general, smaller epsilon results in smaller relative-error but due to the nature of the solvers utilized, the
-            adaptive stepping is prone to be less than ideal and errors can often be larger than the specified epsilon tolerance level.
+            Relative error tolerance for system. Solver will suggest step sizes
+            in an attempt to keep the two-norm relative error of the system
+            less than this value. This is used as a tuning parameter in the
+            solver and the relative-error is not strictly enforced! In general,
+            smaller epsilon results in smaller relative-error but due to the
+            nature of the solvers utilized, the adaptive stepping is prone to
+            be less than ideal and errors can often be larger than the
+            specified epsilon tolerance level.
 
         incrF : float, > 1.0
-            Increment factor for increasing the step size utilized in propagating a system. After each step in the propagation
-            a 'optimal' step size of h_opt is computed and compared vs the current step size h_current. If h_opt > incrF*h_current,
-            then the solver will suggest h_opt as the next step size, otherwise it will continue using the current step size. This
-            parameter is used such that very small changes to the step size are avoided and hence potentially expensive evaluations
-            of the RK coefficients are avoided.
+            Increment factor for increasing the step size utilized in
+            propagating a system. After each step in the propagation a
+            'optimal' step size of h_opt is computed and compared vs the
+            current step size h_current. If h_opt > incrF*h_current, then the
+            solver will suggest h_opt as the next step size, otherwise it will
+            continue using the current step size. This parameter is used such
+            that very small changes to the step size are avoided and hence
+            potentially expensive evaluations of the RK coefficients are avoided.
 
         decrF : float, < 1.0
-            Decrement factor for decreasing the step size utilized in propagating a system. After each step in the propagation
-            a 'optimal' step size of h_opt is computed and compared vs the current step size h_current. If h_opt > decrF*h_current and
-            h_opt < h_current, then the solver will suggest h_new = decrF*h_current as the next step size. This
-            parameter is used such that very small changes to the step size are avoided and hence potentially expensive evaluations
+            Decrement factor for decreasing the step size utilized in
+            propagating a system. After each step in the propagation a 'optimal'
+            step size of h_opt is computed and compared vs the current step size
+            h_current. If h_opt > decrF*h_current and h_opt < h_current, then
+            the solver will suggest h_new = decrF*h_current as the next step
+            size. This parameter is used such that very small changes to the
+            step size are avoided and hence potentially expensive evaluations
             of the RK coefficients are avoided.
 
         safetyF : float
-            Safety factor for adaptive stepping. The 'optimal' step size computed using the embedded RK methods is multiplied by
-            this factor to try to enforce the relative-error to be below the epsilon relative-error threshold. The relative-error
-            computed for these solvers based on embedded methods is an inaccurate estimate and so this saftey factor can be used
-            to tune the system error to be more inline with actual errors.
+            Safety factor for adaptive stepping. The 'optimal' step size
+            computed using the embedded RK methods is multiplied by this factor
+            to try to enforce the relative-error to be below the epsilon
+            relative-error threshold. The relative-error computed for these
+            solvers based on embedded methods is an inaccurate estimate and so
+            this saftey factor can be used to tune the system error to be more
+            inline with actual errors.
 
         adapt_cutoff : float < 1
-            Limits values used in the computation of the suggested step size to those with |u| > adapt_cutoff*max(|u|). To include all
-            values in the calculation of step size: set this to a very small number.
+            Limits values used in the computation of the suggested step size to
+            those with |u| > adapt_cutoff*max(|u|). To include all values in
+            the calculation of step size: set this to a very small number.
 
         minh : float
-            Minimum step size that can be taken by the solver before throwing an exception
-            self.linop = linop
+            Minimum step size that can be taken by the solver before throwing
+            an exception
         """
 
         self.linop = linop
@@ -166,9 +202,7 @@ class StiffSolverAS(ABC):
 
         self.adapt_cutoff = adapt_cutoff
         if self.adapt_cutoff >= 1.0:
-            raise ValueError(
-                "adapt_cutoff must be < 1.0 but is {}".format(self.adapt_cutoff)
-            )
+            raise ValueError("adapt_cutoff must be < 1.0 but is {}".format(self.adapt_cutoff))
 
         self.minh = minh
         if self.minh <= 0:
@@ -180,8 +214,9 @@ class StiffSolverAS(ABC):
         self.t, self.u, self.logs = [], [], []
 
     def reset(self):
-        """Resets solver to its initial state (such that its ready to call the functions evolve
-        or step on a new input). Erases stored variables such as self.t, self.u, and self.logs.
+        """Resets solver to its initial state (such that its ready to call the
+        functions evolve or step on a new input). Erases stored variables
+        such as self.t, self.u, and self.logs.
         """
         self.t, self.u, self.logs = [], [], []
         self.__t0, self.__tf, self.__tc = 0, 0, 0
@@ -206,20 +241,23 @@ class StiffSolverAS(ABC):
 
     def step(self, u: np.ndarray, h_suggest: float) -> Tuple[np.ndarray, float, float]:
         """
-        Propagates a given array of u one step using an RK method for stiff PDEs.
+        Propagates a given array of u one step using an RK method for stiff
+        PDEs.
 
         INPUTS:
             u : np.array
                 input to propagate
             h_suggest : float
-                suggested step size; may be reduced to achieve the desired accuracy as
-                specified by the relative error threshold variable 'epsilon'
+                suggested step size; may be reduced to achieve the desired
+                accuracy as specified by the relative error threshold variable
+                'epsilon'
 
         OUTPUTS:
             unew : np.array
                 result of input u propagated one step in the RK algorithm
             h : float
-                actual step size taken in the algorithm (may be less than h_suggest)
+                actual step size taken in the algorithm (may be less than
+                h_suggest)
             h_suggest : float
                 step size the algorithm suggests you take for the next step
         """
@@ -246,9 +284,7 @@ class StiffSolverAS(ABC):
                 self.logs.append(failure_str)
                 raise Exception(failure_str)
             if h < self.minh:
-                failure_str = (
-                    """Solver failed: adaptive step reached minimum step size """
-                )
+                failure_str = """Solver failed: adaptive step reached minimum step size """
                 self.logs.append(failure_str)
                 raise Exception(failure_str)
 
@@ -268,9 +304,7 @@ class StiffSolverAS(ABC):
         self._accept = False
         # Check that s is a number
         if np.isinf(s) or np.isnan(s):
-            self.logs.append(
-                "inf or nan number encountered: reducing step size to {}!".format(h)
-            )
+            self.logs.append("inf or nan number encountered: reducing step size to {}!".format(h))
             return self.MIN_S * h
 
         s = np.max([s, self.MIN_S])  # dont let s be too small
@@ -313,12 +347,15 @@ class StiffSolverAS(ABC):
             tf : float
                 end time at which propagation stops
             h_init : float, optional
-                starting step size for RK method (default of (tf-t0)/100 if not specified)
+                starting step size for RK method (default of (tf-t0)/100 if not
+                specified)
             store_data : bool, optional
-                value that determines whether to keep track of the propagation array u
-                at each step of the RK method. Values stored in self.u and self.t
+                value that determines whether to keep track of the propagation
+                array u at each step of the RK method. Values stored in self.u
+                and self.t
             store_freq : int, optional
-                store propagation data in self.t and self.u after every [store_freq] step is taken
+                store propagation data in self.t and self.u after every
+                [store_freq] step is taken
         OUTPUTS:
             u : np.array
                 final value of the input propagated from t0 to tf
@@ -359,30 +396,36 @@ class StiffSolverAS(ABC):
 
 class StiffSolverCS(ABC):
     """
-    Base class for a constant-step Runge-Kutta solver for stiff systems of the type dtU = LU + NL(U),
-    where L is a linear operator and NL is a non-linear function.
+    Base class for a constant-step Runge-Kutta solver for stiff systems of the
+    type dtU = LU + NL(U), where L is a linear operator and NL is a non-linear
+    function.
 
     ATTRIBUTES
     __________
 
     linop : np.array
-        Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D numpy array (matrix)
-        or a 1D array (diagonal system). L can be either real-valued or complex-valued.
+        Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D
+        numpy array (matrix) or a 1D array (diagonal system). L can be either
+        real-valued or complex-valued.
 
     NLfunc : function
-        Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a complex or real-valued function.
+        Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a
+        complex or real-valued function.
 
     u : list
-        List of np.arrays corresponding to the propagated U in the system dtU = LU + NL(U) using the evolve function
+        List of np.arrays corresponding to the propagated U in the system
+        dtU = LU + NL(U) using the evolve function
 
     t : list
-        List of times corresponding to the propagated U in the system dtU = LU + NL(U) using the evolve function
+        List of times corresponding to the propagated U in the system
+        dtU = LU + NL(U) using the evolve function
 
     METHODS
     _______
 
     step(u,h):
-        Propagates a given array of u, taking a step of size h, using an RK method for stiff PDEs.
+        Propagates a given array of u, taking a step of size h, using an RK
+        method for stiff PDEs.
 
     evolve(u,t0,tf,h,store_data=True,store_freq=1)
         Propagates an initial value (array) of u given at time t0
@@ -390,18 +433,21 @@ class StiffSolverCS(ABC):
         Solver will always take a step of size h
 
     reset()
-        Resets solver including erasing stored variables such as self.t, self.u, and self.logs
+        Resets solver including erasing stored variables such as self.t,
+        self.u, and self.logs
     """
 
     def __init__(self, linop, NLfunc):
         """
 
         linop : np.array
-            Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D numpy array (matrix)
-            or a 1D array (diagonal system). L can be either real-valued or complex-valued.
+            Linear operator (L) in the system dtU = LU + NL(U). Can be either a
+            2D numpy array (matrix) or a 1D array (diagonal system). L can be
+            either real-valued or complex-valued.
 
         NLfunc : function
-            Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a complex or real-valued function.
+            Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a
+            complex or real-valued function.
 
         """
 
@@ -422,8 +468,9 @@ class StiffSolverCS(ABC):
         self.t, self.u, self.logs = [], [], []
 
     def reset(self):
-        """Resets solver to its initial state (such that its ready to call the functions evolve
-        or step on a new input). Erases stored variables such as self.t, self.u, and self.logs.
+        """Resets solver to its initial state (such that its ready to call the
+        functions evolve or step on a new input). Erases stored variables
+        such as self.t, self.u, and self.logs.
         """
         self.t, self.u, self.logs = [], [], []
         self.__t0, self.__tf, self.__tc = 0, 0, 0
@@ -441,7 +488,8 @@ class StiffSolverCS(ABC):
 
     def step(self, u: np.ndarray, h: float) -> np.ndarray:
         """
-        Propagates a given array of u one step using an RK method for stiff PDEs.
+        Propagates a given array of u one step using an RK method for stiff
+        PDEs.
 
         INPUTS:
             u : np.array
@@ -482,10 +530,12 @@ class StiffSolverCS(ABC):
             h : float
                 step size for RK method
             store_data : bool, optional
-                value that determines whether to keep track of the propagation array u
-                at each step of the RK method. Values stored in self.u and self.t
+                value that determines whether to keep track of the propagation
+                array u at each step of the RK method. Values stored in self.u
+                and self.t
             store_freq : int, optional
-                store propagation data in self.t and self.u after every [store_freq] step is taken
+                store propagation data in self.t and self.u after every
+                [store_freq] step is taken
         OUTPUTS:
             u : np.array
                 final value of the input propagated from t0 to tf
@@ -502,9 +552,7 @@ class StiffSolverCS(ABC):
 
         # Make sure step size isn't larger than entire propagation time
         if self.__tc + h > self.__tf:
-            raise ValueError(
-                "Reduce step size h, it needs to be less than or equal to tf-t0"
-            )
+            raise ValueError("Reduce step size h, it needs to be less than or equal to tf-t0")
 
         step_count = 0
         while self.__tc < self.__tf:

@@ -54,3 +54,6 @@ test = [
 homepage = "https://github.com/whalenpt/rkstiff"
 documentation = "https://github.com/whalenpt/rkstiff"
 repository = "https://github.com/whalenpt/rkstiff"
+
+[tool.black]
+line-length = 127
