@@ -7,7 +7,7 @@ packages = ["rkstiff"]
 
 [project]
 name = "rkstiff"
-version = '0.1.2'
+version = '0.3.0'
 authors = [{name = "Patrick Whalen", email = "whalenpt@gmail.com"}]
 description = "'Runge-Kutta adaptive-step and constant-step solvers for nonlinear PDEs'"
 readme = "README.md"
