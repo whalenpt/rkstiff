@@ -7,6 +7,12 @@ dist
 demos/.ipynb_checkpoints
 .eggs
 tox.ini
-.tox
+.tox*
 conda_build/outputdir
+.coverage
+log
+lib
+bin
+pyvenv*
+.vscode
 

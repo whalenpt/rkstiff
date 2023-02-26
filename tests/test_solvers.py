@@ -26,49 +26,49 @@ def test_solver_input():
     # Test that invalid linear operator raises ValueError
     with pytest.raises(ValueError):
         L = np.zeros(shape=(4, 2))
-        solver = ETD34(linop=L, NLfunc=NLstub)
+        ETD34(linop=L, NLfunc=NLstub)
     # Test that invalid linear increment factor raises ValueError
     with pytest.raises(ValueError):
-        solver = ETD34(linop=Lstub(10), NLfunc=NLstub, incrF=0.8)
+        ETD34(linop=Lstub(10), NLfunc=NLstub, incrF=0.8)
     # Test that invalid linear decrement factor raises ValueError
     with pytest.raises(ValueError):
-        solver = ETD34(linop=Lstub(10), NLfunc=NLstub, decrF=1.1)
+        ETD34(linop=Lstub(10), NLfunc=NLstub, decrF=1.1)
     # Test that negative epsilon raises ValueError
     with pytest.raises(ValueError):
-        solver = ETD34(linop=Lstub(10), NLfunc=NLstub, epsilon=-1e-3)
+        ETD34(linop=Lstub(10), NLfunc=NLstub, epsilon=-1e-3)
     # Test that invalid safetyFactor raises ValueError
     with pytest.raises(ValueError):
-        solver = ETD34(linop=Lstub(10), NLfunc=NLstub, safetyF=1.2)
+        ETD34(linop=Lstub(10), NLfunc=NLstub, safetyF=1.2)
     # Test that invalid adapt_cutoff raises ValueError
     with pytest.raises(ValueError):
-        solver = ETD34(linop=Lstub(10), NLfunc=NLstub, adapt_cutoff=1)
+        ETD34(linop=Lstub(10), NLfunc=NLstub, adapt_cutoff=1)
     with pytest.raises(ValueError):
-        solver = ETD34(linop=Lstub(10), NLfunc=NLstub, minh=0)
+        ETD34(linop=Lstub(10), NLfunc=NLstub, minh=0)
 
 
 def test_etdsolver_input():
     # Test that modecutoff is valid
     with pytest.raises(ValueError):
-        solver = ETD35(linop=Lstub(10), NLfunc=NLstub, modecutoff=1.2)
+        ETD35(linop=Lstub(10), NLfunc=NLstub, modecutoff=1.2)
     with pytest.raises(ValueError):
-        solver = ETD35(linop=Lstub(10), NLfunc=NLstub, modecutoff=0)
+        ETD35(linop=Lstub(10), NLfunc=NLstub, modecutoff=0)
     # Test that contour_points is an integer
     with pytest.raises(TypeError):
-        solver = ETD35(linop=Lstub(10), NLfunc=NLstub, contour_points=12.2)
+        ETD35(linop=Lstub(10), NLfunc=NLstub, contour_points=12.2)
     # Test that contour_points is greater than 1
     with pytest.raises(ValueError):
-        solver = ETD35(linop=Lstub(10), NLfunc=NLstub, contour_points=1)
+        ETD35(linop=Lstub(10), NLfunc=NLstub, contour_points=1)
     # Test that contour_radius is positive
     with pytest.raises(ValueError):
-        solver = ETD35(linop=Lstub(10), NLfunc=NLstub, contour_radius=0)
+        ETD35(linop=Lstub(10), NLfunc=NLstub, contour_radius=0)
 
 
 def test_abc_error():
     # Test that abstract base classes cannot be instantiated
     with pytest.raises(TypeError):
-        solver = ETDAS(linop=Lstub(10), NLfunc=NLstub)
+        ETDAS(linop=Lstub(10), NLfunc=NLstub)
     with pytest.raises(TypeError):
-        solver = StiffSolverAS(linop=Lstub(10), NLfunc=NLstub)
+        StiffSolverAS(linop=Lstub(10), NLfunc=NLstub)
 
 
 def allen_cahn_setup():
@@ -140,9 +140,7 @@ def kdv_evolve_eval(solver, u0FFT, uexactFFT, h, tf, tol):
 
 def test_etd34_nondiag():
     xint, u0int, w0int, L, NL = allen_cahn_setup()
-    solver = ETD34(
-        linop=L, NLfunc=NL, epsilon=1e-3, contour_points=64, contour_radius=20
-    )
+    solver = ETD34(linop=L, NLfunc=NL, epsilon=1e-3, contour_points=64, contour_radius=20)
     wfint = solver.evolve(w0int, t0=0, tf=60, store_data=False)
     ufint = wfint.real + xint
     assert np.abs(u0int[0] - ufint[0]) < 0.01
@@ -151,9 +149,7 @@ def test_etd34_nondiag():
 
 def test_etd34():
     u0FFT, L, NL, uexactFFT, h, steps = kdv_soliton_setup()
-    solver = ETD34(
-        linop=L, NLfunc=NL, epsilon=1e-1
-    )  # small epsilon -> step size isn't auto-reduced
+    solver = ETD34(linop=L, NLfunc=NL, epsilon=1e-1)  # small epsilon -> step size isn't auto-reduced
     kdv_AS_step_eval(solver, u0FFT, uexactFFT, h, steps, tol=1e-4)
     solver.reset()
     solver.epsilon = 1e-4
@@ -162,9 +158,7 @@ def test_etd34():
 
 def test_etd35():
     u0FFT, L, NL, uexactFFT, h, steps = kdv_soliton_setup()
-    solver = ETD35(
-        linop=L, NLfunc=NL, epsilon=1e-1
-    )  # small epsilon -> step size isn't auto-reduced
+    solver = ETD35(linop=L, NLfunc=NL, epsilon=1e-1)  # small epsilon -> step size isn't auto-reduced
     kdv_AS_step_eval(solver, u0FFT, uexactFFT, h, steps, tol=1e-4)
     solver.reset()
     solver.epsilon = 1e-4
@@ -173,9 +167,7 @@ def test_etd35():
 
 def test_etd35_nondiag():
     xint, u0int, w0int, L, NL = allen_cahn_setup()
-    solver = ETD35(
-        linop=L, NLfunc=NL, epsilon=1e-4, contour_points=32, contour_radius=10
-    )
+    solver = ETD35(linop=L, NLfunc=NL, epsilon=1e-4, contour_points=32, contour_radius=10)
     wfint = solver.evolve(w0int, t0=0, tf=60, store_data=False)
     ufint = wfint.real + xint
     assert np.abs(u0int[0] - ufint[0]) < 0.01
@@ -186,9 +178,7 @@ def test_if34():
     u0FFT, L, NL = burgers_setup()
     solver = IF34(linop=L, NLfunc=NL, epsilon=1e-4)
     uFFT = solver.evolve(u0FFT, t0=0, tf=0.85, store_data=False)
-    rel_err = np.abs(np.linalg.norm(uFFT) - np.linalg.norm(u0FFT)) / np.linalg.norm(
-        u0FFT
-    )
+    rel_err = np.abs(np.linalg.norm(uFFT) - np.linalg.norm(u0FFT)) / np.linalg.norm(u0FFT)
     assert rel_err < 1e-2
 
 
@@ -205,9 +195,7 @@ def test_if45dp():
     u0FFT, L, NL = burgers_setup()
     solver = IF45DP(linop=L, NLfunc=NL, epsilon=1e-3)
     uFFT = solver.evolve(u0FFT, t0=0, tf=0.85, store_data=False)
-    rel_err = np.abs(np.linalg.norm(uFFT) - np.linalg.norm(u0FFT)) / np.linalg.norm(
-        u0FFT
-    )
+    rel_err = np.abs(np.linalg.norm(uFFT) - np.linalg.norm(u0FFT)) / np.linalg.norm(u0FFT)
     assert rel_err < 1e-2
 
 
