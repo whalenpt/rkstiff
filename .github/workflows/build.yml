@@ -33,4 +33,4 @@ jobs:
         
     - name: Run with Tox
       run: |
-        python -m tox ..
+        python -m tox -e ..
