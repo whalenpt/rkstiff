@@ -1,3 +1,11 @@
+[![PyPI Version][pypi-image]][pypi-url]
+[![Build Status][build-image]][build-url]
+
+<!-- Badges -->
+[pypi-image]: https://img.shields.io/pypi/v/rkstiff
+[pypi-url]: https://pypi.org/project/rkstiff/
+[build-image]: https://github.com/whalenpt/rkstiff/actions/workflows/build.yml/badge.svg
+[build-url]: https://github.com/whalenpt/rkstiff/actions/workflows/build.yml
 
 # rkstiff #
 
