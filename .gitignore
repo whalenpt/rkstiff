@@ -2,6 +2,7 @@ __pycache__
 rkstiff/orderfuncs.py
 rkstiff/rkstiff.egg-info
 rkstiff.egg-info
+rkstiff/__version__.py
 build
 dist
 demos/.ipynb_checkpoints

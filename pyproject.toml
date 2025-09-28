@@ -1,35 +1,43 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-packages = ["rkstiff"]
+requires = [
+    "setuptools>=61.0.0",
+    "wheel",
+    # Require a recent version of setuptools-scm to ensure compatibility
+    # Version 6.x is stable, but 7+ is recommended for modern systems.
+    "setuptools-scm>=7.0.0",
+]
 
 [project]
 name = "rkstiff"
-version = '0.3.0'
 authors = [{name = "Patrick Whalen", email = "whalenpt@gmail.com"}]
 description = "'Runge-Kutta adaptive-step and constant-step solvers for nonlinear PDEs'"
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.6"
+requires-python = ">=3.8"
+dynamic = ["version"]
 keywords = ["ETD", "Runge-Kutta", "Nonlinear PDEs"]
-classifiers=[
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-]
-
 dependencies = [
     "numpy >=1.14.0",
     "scipy >=1.3.2"
 ]
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.setuptools]
+packages = ["rkstiff"]
+
+[tool.setuptools_scm]
+write_to = "rkstiff/__version__.py"   # <- generates this file automatically
+version_scheme = "post-release"   # optional, controls version style
+local_scheme = "node-and-date"    # optional, controls local version identifiers
 
 [project.optional-dependencies]
 demo = [
