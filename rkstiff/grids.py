@@ -15,13 +15,9 @@ def construct_x_kx_rfft(N: int, a: float = 0.0, b: float = 2 * np.pi):
     """
 
     if not isinstance(N, int):
-        raise TypeError(
-            "Number of grid points N must be an integer, it is {}".format(N)
-        )
+        raise TypeError("Number of grid points N must be an integer, it is {}".format(N))
     if N <= 2:
-        raise ValueError(
-            "Number of grid points N must be larger than 2, it is {}".format(N)
-        )
+        raise ValueError("Number of grid points N must be larger than 2, it is {}".format(N))
     if (N % 2) != 0:
         raise ValueError("Integer N in construct_x_kx_rfft must be an even number")
 
@@ -43,13 +39,9 @@ def construct_x_kx_fft(N: int, a: float = 0.0, b: float = 2 * np.pi):
     """
 
     if not isinstance(N, int):
-        raise TypeError(
-            "Number of grid points N must be an integer, it is {}".format(N)
-        )
+        raise TypeError("Number of grid points N must be an integer, it is {}".format(N))
     if N <= 2:
-        raise ValueError(
-            "Number of grid points N must be larger than 2, it is {}".format(N)
-        )
+        raise ValueError("Number of grid points N must be larger than 2, it is {}".format(N))
     if (N % 2) != 0:
         raise ValueError("Integer N in construct_x_kx_rfft must be an even number")
 
@@ -71,15 +63,9 @@ def construct_x_cheb(N: int, a: float = -1.0, b: float = 1.0):
     """
 
     if not isinstance(N, int):
-        raise TypeError(
-            "Max Chebyshev grid point number N must be an integer, it is {}".format(N)
-        )
+        raise TypeError("Max Chebyshev grid point number N must be an integer, it is {}".format(N))
     if N < 2:
-        raise ValueError(
-            "Max Chebyshev grid point number N must be larger than 1, it is {}".format(
-                N
-            )
-        )
+        raise ValueError("Max Chebyshev grid point number N must be larger than 1, it is {}".format(N))
     x = np.polynomial.chebyshev.chebpts2(N + 1)
     x = a + (b - a) * (x + 1) / 2.0
     return x
@@ -99,9 +85,7 @@ def construct_x_Dx_cheb(N: int, a: float = -1, b: float = 1):
     """
     x = construct_x_cheb(N, a, b)
     c = np.r_[2, np.ones(N - 1), 2] * np.power(-1, np.arange(0, N + 1))
-    X = np.tile(
-        x.reshape(N + 1, 1), (1, N + 1)
-    )  # put copies of x in columns (first row is x0)
+    X = np.tile(x.reshape(N + 1, 1), (1, N + 1))  # put copies of x in columns (first row is x0)
     dX = X - X.T
     Dx = np.outer(c, 1.0 / c) / (dX + np.eye(N + 1))
     Dx = Dx - np.diag(Dx.sum(axis=1))

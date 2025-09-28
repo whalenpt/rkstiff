@@ -28,9 +28,7 @@ class _ETD34_Diagonal:
             self._a52,
             self._a54,
         ) = [np.zeros(N, dtype=np.complex128) for _ in range(8)]
-        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [
-            np.zeros(N, dtype=np.complex128) for _ in range(5)
-        ]
+        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [np.zeros(N, dtype=np.complex128) for _ in range(5)]
         self._k = np.zeros(N, dtype=np.complex128)
         self._err = np.zeros(N, dtype=np.complex128)
 
@@ -95,12 +93,7 @@ class _ETD34_Diagonal:
         self._NL3 = self.NLfunc(self._k)
         self._k = self._EL * u + self._a41 * self._NL1 + self._a43 * self._NL3
         self._NL4 = self.NLfunc(self._k)
-        self._k = (
-            self._EL * u
-            + self._a51 * self._NL1
-            + self._a52 * (self._NL2 + self._NL3)
-            + self._a54 * self._NL4
-        )
+        self._k = self._EL * u + self._a51 * self._NL1 + self._a52 * (self._NL2 + self._NL3) + self._a54 * self._NL4
         self._NL5 = self.NLfunc(self._k)
         self._err = self._a54 * (self._NL4 - self._NL5)
         return self._k, self._err
@@ -150,10 +143,7 @@ class _ETD34_Diagonalized(_ETD34_Diagonal):
         self._k = self._EL * self._v + self._a41 * self._NL1 + self._a43 * self._NL3
         self._NL4 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
         self._k = (
-            self._EL * self._v
-            + self._a51 * self._NL1
-            + self._a52 * (self._NL2 + self._NL3)
-            + self._a54 * self._NL4
+            self._EL * self._v + self._a51 * self._NL1 + self._a52 * (self._NL2 + self._NL3) + self._a54 * self._NL4
         )
         self._NL5 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
         self._err = self._a54 * (self._NL4 - self._NL5)
@@ -172,9 +162,7 @@ class _ETD34_NonDiagonal:
         self.R = contourR
 
         N = linop.shape[0]
-        self._EL, self._EL2 = [
-            np.zeros(shape=linop.shape, dtype=np.complex128) for _ in range(2)
-        ]
+        self._EL, self._EL2 = [np.zeros(shape=linop.shape, dtype=np.complex128) for _ in range(2)]
         (
             self._a21,
             self._a31,
@@ -185,9 +173,7 @@ class _ETD34_NonDiagonal:
             self._a52,
             self._a54,
         ) = [np.zeros(shape=linop.shape, dtype=np.complex128) for _ in range(8)]
-        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [
-            np.zeros(N, dtype=np.complex128) for _ in range(5)
-        ]
+        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [np.zeros(N, dtype=np.complex128) for _ in range(5)]
         self._k = np.zeros(N, dtype=np.complex128)
         self._err = np.zeros(N, dtype=np.complex128)
 
@@ -234,10 +220,7 @@ class _ETD34_NonDiagonal:
         self._k = self._EL.dot(u) + self._a41.dot(self._NL1) + self._a43.dot(self._NL3)
         self._NL4 = self.NLfunc(self._k)
         self._k = (
-            self._EL.dot(u)
-            + self._a51.dot(self._NL1)
-            + self._a52.dot(self._NL2 + self._NL3)
-            + self._a54.dot(self._NL4)
+            self._EL.dot(u) + self._a51.dot(self._NL1) + self._a52.dot(self._NL2 + self._NL3) + self._a54.dot(self._NL4)
         )
         self._NL5 = self.NLfunc(self._k)
         self._err = self._a54.dot(self._NL4 - self._NL5)
@@ -323,9 +306,7 @@ class ETD34(ETDAS):
         )
         self._method = Union[_ETD34_Diagonal, _ETD34_Diagonalized]
         if self._diag:
-            self._method = _ETD34_Diagonal(
-                linop, NLfunc, self.contour_points, self.contour_radius, self.modecutoff
-            )
+            self._method = _ETD34_Diagonal(linop, NLfunc, self.contour_points, self.contour_radius, self.modecutoff)
         else:
             if diagonalize:
                 self._method = _ETD34_Diagonalized(
@@ -336,9 +317,7 @@ class ETD34(ETDAS):
                     self.modecutoff,
                 )
             else:
-                self._method = _ETD34_NonDiagonal(
-                    linop, NLfunc, self.contour_points, self.contour_radius
-                )
+                self._method = _ETD34_NonDiagonal(linop, NLfunc, self.contour_points, self.contour_radius)
         self.__N1_init = False
         self._accept = False
 

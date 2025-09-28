@@ -13,9 +13,7 @@ class _IF4_Diagonal:
 
         N = linop.shape[0]
         self._EL, self._EL2 = [np.zeros(N, dtype=np.complex128) for _ in range(2)]
-        self._NL1, self._NL2, self._NL3, self._NL4 = [
-            np.zeros(N, dtype=np.complex128) for _ in range(4)
-        ]
+        self._NL1, self._NL2, self._NL3, self._NL4 = [np.zeros(N, dtype=np.complex128) for _ in range(4)]
         self._k = np.zeros(N, dtype=np.complex128)
 
     def _updateCoeffs(self, h):
@@ -36,10 +34,7 @@ class _IF4_Diagonal:
         self._k = self._EL * u + h * self._EL2 * self._NL3
         self._NL4 = self.NLfunc(self._k)
         self._k = self._EL * u + h * (
-            self._EL * self._NL1 / 6.0
-            + self._EL2 * self._NL2 / 3.0
-            + self._EL2 * self._NL3 / 3.0
-            + self._NL4 / 6.0
+            self._EL * self._NL1 / 6.0 + self._EL2 * self._NL2 / 3.0 + self._EL2 * self._NL3 / 3.0 + self._NL4 / 6.0
         )
         self._NL1 = self.NLfunc(self._k)  # FSAL principle
         return self._k
@@ -53,12 +48,8 @@ class _IF4_NonDiagonal:
         self.NLfunc = NLfunc
 
         N = linop.shape[0]
-        self._EL, self._EL2 = [
-            np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(2)
-        ]
-        self._NL1, self._NL2, self._NL3, self._NL4 = [
-            np.zeros(N, dtype=np.complex128) for _ in range(4)
-        ]
+        self._EL, self._EL2 = [np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(2)]
+        self._NL1, self._NL2, self._NL3, self._NL4 = [np.zeros(N, dtype=np.complex128) for _ in range(4)]
         self._k = np.zeros(N, dtype=np.complex128)
 
     def _updateCoeffs(self, h):

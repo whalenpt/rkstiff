@@ -16,15 +16,9 @@ class _ETD4_Diagonal:
 
         N = linop.shape[0]
         self._EL, self._EL2 = [np.zeros(N, dtype=np.complex128) for _ in range(2)]
-        self._a21, self._a31, self._a32, self._a41, self._a43 = [
-            np.zeros(N, dtype=np.complex128) for _ in range(5)
-        ]
-        self._b1, self._b2, self._b4 = [
-            np.zeros(N, dtype=np.complex128) for _ in range(3)
-        ]
-        self._NL1, self._NL2, self._NL3, self._NL4 = [
-            np.zeros(N, dtype=np.complex128) for _ in range(4)
-        ]
+        self._a21, self._a31, self._a32, self._a41, self._a43 = [np.zeros(N, dtype=np.complex128) for _ in range(5)]
+        self._b1, self._b2, self._b4 = [np.zeros(N, dtype=np.complex128) for _ in range(3)]
+        self._NL1, self._NL2, self._NL3, self._NL4 = [np.zeros(N, dtype=np.complex128) for _ in range(4)]
         self._k = np.zeros(N, dtype=np.complex128)
 
     def _updateCoeffs(self, h):
@@ -82,12 +76,7 @@ class _ETD4_Diagonal:
         self._NL3 = self.NLfunc(self._k)
         self._k = self._EL * u + self._a41 * self._NL1 + self._a43 * self._NL3
         self._NL4 = self.NLfunc(self._k)
-        self._k = (
-            self._EL * u
-            + self._b1 * self._NL1
-            + self._b2 * (self._NL2 + self._NL3)
-            + self._b4 * self._NL4
-        )
+        self._k = self._EL * u + self._b1 * self._NL1 + self._b2 * (self._NL2 + self._NL3) + self._b4 * self._NL4
         self._NL1 = self.NLfunc(self._k)
         return self._k
 
@@ -102,18 +91,12 @@ class _ETD4_NonDiagonal:
         self.R = contourR
 
         N = linop.shape[0]
-        self._EL, self._EL2 = [
-            np.zeros(shape=linop.shape, dtype=np.complex128) for _ in range(2)
-        ]
+        self._EL, self._EL2 = [np.zeros(shape=linop.shape, dtype=np.complex128) for _ in range(2)]
         self._a21, self._a31, self._a32, self._a41, self._a43 = [
             np.zeros(shape=linop.shape, dtype=np.complex128) for _ in range(5)
         ]
-        self._b1, self._b2, self._b4 = [
-            np.zeros(shape=linop.shape, dtype=np.complex128) for _ in range(3)
-        ]
-        self._NL1, self._NL2, self._NL3, self._NL4 = [
-            np.zeros(N, dtype=np.complex128) for _ in range(4)
-        ]
+        self._b1, self._b2, self._b4 = [np.zeros(shape=linop.shape, dtype=np.complex128) for _ in range(3)]
+        self._NL1, self._NL2, self._NL3, self._NL4 = [np.zeros(N, dtype=np.complex128) for _ in range(4)]
         self._k = np.zeros(N, dtype=np.complex128)
 
     def _updateCoeffs(self, h):
@@ -155,10 +138,7 @@ class _ETD4_NonDiagonal:
         self._k = self._EL.dot(u) + self._a41.dot(self._NL1) + self._a43.dot(self._NL3)
         self._NL4 = self.NLfunc(self._k)
         self._k = (
-            self._EL.dot(u)
-            + self._b1.dot(self._NL1)
-            + self._b2.dot(self._NL2 + self._NL3)
-            + self._b4.dot(self._NL4)
+            self._EL.dot(u) + self._b1.dot(self._NL1) + self._b2.dot(self._NL2 + self._NL3) + self._b4.dot(self._NL4)
         )
         self._NL1 = self.NLfunc(self._k)  # Use First is same as last principle (FSAL)
         return self._k
@@ -219,13 +199,9 @@ class ETD4(ETDCS):
         )
         self._method = Union[_ETD4_Diagonal, _ETD4_NonDiagonal]
         if self._diag:
-            self._method = _ETD4_Diagonal(
-                linop, NLfunc, self.contour_points, self.contour_radius, self.modecutoff
-            )
+            self._method = _ETD4_Diagonal(linop, NLfunc, self.contour_points, self.contour_radius, self.modecutoff)
         else:
-            self._method = _ETD4_NonDiagonal(
-                linop, NLfunc, self.contour_points, self.contour_radius
-            )
+            self._method = _ETD4_NonDiagonal(linop, NLfunc, self.contour_points, self.contour_radius)
         self.__N1_init = False
 
     def _reset(self):

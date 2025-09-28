@@ -15,9 +15,7 @@ class _IF34_Diagonal:
 
         N = linop.shape[0]
         self._EL, self._EL2 = [np.zeros(N, dtype=np.complex128) for _ in range(2)]
-        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [
-            np.zeros(N, dtype=np.complex128) for _ in range(5)
-        ]
+        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [np.zeros(N, dtype=np.complex128) for _ in range(5)]
         self._k = np.zeros(N, dtype=np.complex128)
         self._err = np.zeros(N, dtype=np.complex128)
 
@@ -43,10 +41,7 @@ class _IF34_Diagonal:
         self._k = self._EL * u + h * self._EL2 * self._NL3
         self._NL4 = self.NLfunc(self._k)
         self._k = self._EL * u + h * (
-            self._EL * self._NL1 / 6.0
-            + self._EL2 * self._NL2 / 3.0
-            + self._EL2 * self._NL3 / 3.0
-            + self._NL4 / 6.0
+            self._EL * self._NL1 / 6.0 + self._EL2 * self._NL2 / 3.0 + self._EL2 * self._NL3 / 3.0 + self._NL4 / 6.0
         )
         self._NL5 = self.NLfunc(self._k)
         self._err = h * (self._NL4 - self._NL5) / 6.0
@@ -97,10 +92,7 @@ class _IF34_Diagonalized(_IF34_Diagonal):
         self._k = self._EL * self._v + h * self._EL2 * self._NL3
         self._NL4 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
         self._k = self._EL * self._v + h * (
-            self._EL * self._NL1 / 6.0
-            + self._EL2 * self._NL2 / 3.0
-            + self._EL2 * self._NL3 / 3.0
-            + self._NL4 / 6.0
+            self._EL * self._NL1 / 6.0 + self._EL2 * self._NL2 / 3.0 + self._EL2 * self._NL3 / 3.0 + self._NL4 / 6.0
         )
         self._NL5 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
         self._err = h * (self._NL4 - self._NL5) / 6.0
@@ -117,12 +109,8 @@ class _IF34_NonDiagonal:
         self.NLfunc = NLfunc
 
         N = linop.shape[0]
-        self._EL, self._EL2 = [
-            np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(2)
-        ]
-        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [
-            np.zeros(N, dtype=np.complex128) for _ in range(5)
-        ]
+        self._EL, self._EL2 = [np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(2)]
+        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [np.zeros(N, dtype=np.complex128) for _ in range(5)]
         self._k = np.zeros(N, dtype=np.complex128)
         self._err = np.zeros(N, dtype=np.complex128)
 

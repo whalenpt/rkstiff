@@ -17,9 +17,7 @@ class _ETD35_Diagonal:
         self.modecutoff = modecutoff
 
         N = linop.shape[0]
-        self._EL14, self._EL12, self._EL34, self._EL = [
-            np.zeros(N, dtype=np.complex128) for _ in range(4)
-        ]
+        self._EL14, self._EL12, self._EL34, self._EL = [np.zeros(N, dtype=np.complex128) for _ in range(4)]
         (
             self._a21,
             self._a31,
@@ -82,18 +80,12 @@ class _ETD35_Diagonal:
         self._a62[~smallmode_idx] = 8 * phi1_1 / 7.0
         self._a63[~smallmode_idx] = (111 * phi1_1 - 87 * phi2_1) / 28.0
         self._a65[~smallmode_idx] = (-47 * phi1_1 + 143 * phi2_1) / 84.0
-        self._a71[~smallmode_idx] = (
-            7 * (257 * phi1_1 - 497 * phi2_1 + 270 * phi3_1) / 2700
-        )
+        self._a71[~smallmode_idx] = 7 * (257 * phi1_1 - 497 * phi2_1 + 270 * phi3_1) / 2700
         # Paper has error in a73/b3 phi2 coefficient (states this is 497 but it is actually 467)
         self._a73[~smallmode_idx] = (1097 * phi1_1 - 467 * phi2_1 - 150 * phi3_1) / 1350
-        self._a74[~smallmode_idx] = (
-            2 * (-49 * phi1_1 + 199 * phi2_1 - 135 * phi3_1) / 225
-        )
+        self._a74[~smallmode_idx] = 2 * (-49 * phi1_1 + 199 * phi2_1 - 135 * phi3_1) / 225
         self._a75[~smallmode_idx] = (-313 * phi1_1 + 883 * phi2_1 - 90 * phi3_1) / 1350
-        self._a76[~smallmode_idx] = (
-            509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1
-        ) / 2700
+        self._a76[~smallmode_idx] = (509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1) / 2700
 
         # compute small mode coeffs
         zs = z[smallmode_idx]  # z small
@@ -123,14 +115,10 @@ class _ETD35_Diagonal:
         self._a62[smallmode_idx] = 8 * phi1_1 / 7.0
         self._a63[smallmode_idx] = (111 * phi1_1 - 87 * phi2_1) / 28.0
         self._a65[smallmode_idx] = (-47 * phi1_1 + 143 * phi2_1) / 84.0
-        self._a71[smallmode_idx] = (
-            7 * (257 * phi1_1 - 497 * phi2_1 + 270 * phi3_1) / 2700
-        )
+        self._a71[smallmode_idx] = 7 * (257 * phi1_1 - 497 * phi2_1 + 270 * phi3_1) / 2700
         # Paper has error in a73/b3 phi2 coefficient (states this is 497 but it is actually 467)
         self._a73[smallmode_idx] = (1097 * phi1_1 - 467 * phi2_1 - 150 * phi3_1) / 1350
-        self._a74[smallmode_idx] = (
-            2 * (-49 * phi1_1 + 199 * phi2_1 - 135 * phi3_1) / 225
-        )
+        self._a74[smallmode_idx] = 2 * (-49 * phi1_1 + 199 * phi2_1 - 135 * phi3_1) / 225
         self._a75[smallmode_idx] = (-313 * phi1_1 + 883 * phi2_1 - 90 * phi3_1) / 1350
         self._a76[smallmode_idx] = (509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1) / 2700
 
@@ -149,12 +137,7 @@ class _ETD35_Diagonal:
         self._NL3 = self.NLfunc(self._k)
         self._k = self._EL12 * u + self._a41 * self._NL1 + self._a43 * self._NL3
         self._NL4 = self.NLfunc(self._k)
-        self._k = (
-            self._EL34 * u
-            + self._a51 * self._NL1
-            + self._a52 * (self._NL2 - self._NL3)
-            + self._a54 * self._NL4
-        )
+        self._k = self._EL34 * u + self._a51 * self._NL1 + self._a52 * (self._NL2 - self._NL3) + self._a54 * self._NL4
         self._NL5 = self.NLfunc(self._k)
         self._k = (
             self._EL * u
@@ -172,9 +155,7 @@ class _ETD35_Diagonal:
             + self._a75 * self._NL5
             + self._a76 * self._NL6
         )
-        self._err = self._a75 * (
-            -self._NL1 + 4 * self._NL3 - 6 * self._NL4 + 4 * self._NL5 - self._NL6
-        )
+        self._err = self._a75 * (-self._NL1 + 4 * self._NL3 - 6 * self._NL4 + 4 * self._NL5 - self._NL6)
         return self._k, self._err
 
 
@@ -221,10 +202,7 @@ class _ETD35_Diagonalized(_ETD35_Diagonal):
         self._k = self._EL12 * self._v + self._a41 * self._NL1 + self._a43 * self._NL3
         self._NL4 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
         self._k = (
-            self._EL34 * self._v
-            + self._a51 * self._NL1
-            + self._a52 * (self._NL2 - self._NL3)
-            + self._a54 * self._NL4
+            self._EL34 * self._v + self._a51 * self._NL1 + self._a52 * (self._NL2 - self._NL3) + self._a54 * self._NL4
         )
         self._NL5 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
         self._k = (
@@ -243,9 +221,7 @@ class _ETD35_Diagonalized(_ETD35_Diagonal):
             + self._a75 * self._NL5
             + self._a76 * self._NL6
         )
-        self._err = self._a75 * (
-            -self._NL1 + 4 * self._NL3 - 6 * self._NL4 + 4 * self._NL5 - self._NL6
-        )
+        self._err = self._a75 * (-self._NL1 + 4 * self._NL3 - 6 * self._NL4 + 4 * self._NL5 - self._NL6)
         return self._S.dot(self._k), self._err
 
 
@@ -305,9 +281,7 @@ class _ETD35_NonDiagonal:
         phi1_14, phi2_14, phi1_12, phi2_12, phi1_34, phi2_34 = [
             np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(6)
         ]
-        phi1_1, phi2_1, phi3_1 = [
-            np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(3)
-        ]
+        phi1_1, phi2_1, phi3_1 = [np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(3)]
 
         for point in contour_points:
             Q14 = np.linalg.inv(point * np.eye(*self.linop.shape) - z / 4.0)
@@ -351,13 +325,9 @@ class _ETD35_NonDiagonal:
 
         self._k = self._EL14.dot(u) + self._a21.dot(self._NL1)
         self._NL2 = self.NLfunc(self._k)
-        self._k = (
-            self._EL14.dot(u) + self._a31.dot(self._NL1) + self._a32.dot(self._NL2)
-        )
+        self._k = self._EL14.dot(u) + self._a31.dot(self._NL1) + self._a32.dot(self._NL2)
         self._NL3 = self.NLfunc(self._k)
-        self._k = (
-            self._EL12.dot(u) + self._a41.dot(self._NL1) + self._a43.dot(self._NL3)
-        )
+        self._k = self._EL12.dot(u) + self._a41.dot(self._NL1) + self._a43.dot(self._NL3)
         self._NL4 = self.NLfunc(self._k)
         self._k = (
             self._EL34.dot(u)
@@ -382,9 +352,7 @@ class _ETD35_NonDiagonal:
             + self._a75.dot(self._NL5)
             + self._a76.dot(self._NL6)
         )
-        self._err = self._a75.dot(
-            -self._NL1 + 4 * self._NL3 - 6 * self._NL4 + 4 * self._NL5 - self._NL6
-        )
+        self._err = self._a75.dot(-self._NL1 + 4 * self._NL3 - 6 * self._NL4 + 4 * self._NL5 - self._NL6)
         return self._k, self._err
 
 
@@ -467,9 +435,7 @@ class ETD35(ETDAS):
         )
         self._method = Union[_ETD35_Diagonal, _ETD35_Diagonalized]
         if self._diag:
-            self._method = _ETD35_Diagonal(
-                linop, NLfunc, self.contour_points, self.contour_radius, self.modecutoff
-            )
+            self._method = _ETD35_Diagonal(linop, NLfunc, self.contour_points, self.contour_radius, self.modecutoff)
         else:
             if diagonalize:
                 self._method = _ETD35_Diagonalized(
@@ -480,9 +446,7 @@ class ETD35(ETDAS):
                     self.modecutoff,
                 )
             else:
-                self._method = _ETD35_NonDiagonal(
-                    linop, NLfunc, self.contour_points, self.contour_radius
-                )
+                self._method = _ETD35_NonDiagonal(linop, NLfunc, self.contour_points, self.contour_radius)
         self._stages_init = False
         self._accept = False
 

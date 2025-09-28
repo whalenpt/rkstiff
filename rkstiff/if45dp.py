@@ -67,9 +67,7 @@ class IF45DP(StiffSolverAS):
             minh=minh,
         )
         if len(linop.shape) > 1:
-            raise Exception(
-                "IF45DP only handles 1D linear operators (diagonal systems): try IF34,ETD34, or ETD35"
-            )
+            raise Exception("IF45DP only handles 1D linear operators (diagonal systems): try IF34,ETD34, or ETD35")
         self._EL15, self._EL310, self._EL45, self._EL89, self._EL = [
             np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(5)
         ]
@@ -121,12 +119,7 @@ class IF45DP(StiffSolverAS):
         self._NL2 = self.NLfunc(self._k)
         self._k = self._EL310 * u + self._a31 * self._NL1 + self._a32 * self._NL2
         self._NL3 = self.NLfunc(self._k)
-        self._k = (
-            self._EL45 * u
-            + self._a41 * self._NL1
-            + self._a42 * self._NL2
-            + self._a43 * self._NL3
-        )
+        self._k = self._EL45 * u + self._a41 * self._NL1 + self._a42 * self._NL2 + self._a43 * self._NL3
         self._NL4 = self.NLfunc(self._k)
         self._k = (
             self._EL89 * u
