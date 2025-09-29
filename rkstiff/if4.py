@@ -1,79 +1,85 @@
-from rkstiff.solver import StiffSolverCS
-import numpy as np
+""" "IF4 solver module"""
+
 from typing import Callable, Union
+import numpy as np
 from scipy.linalg import expm
+from rkstiff.solver import StiffSolverCS
 
 
-class _IF4_Diagonal:
+class _IF4Diagonal:  # pylint: disable=R0903
     """IF4 diagonal system strategy for IF4 solver"""
 
-    def __init__(self, linop, NLfunc):
-        self.linop = linop
-        self.NLfunc = NLfunc
+    def __init__(self, lin_op, nl_func):
+        self.lin_op = lin_op
+        self.nl_func = nl_func
 
-        N = linop.shape[0]
-        self._EL, self._EL2 = [np.zeros(N, dtype=np.complex128) for _ in range(2)]
-        self._NL1, self._NL2, self._NL3, self._NL4 = [np.zeros(N, dtype=np.complex128) for _ in range(4)]
-        self._k = np.zeros(N, dtype=np.complex128)
+        n = lin_op.shape[0]
+        self._EL, self._EL2 = [np.zeros(n, dtype=np.complex128) for _ in range(2)]
+        self._NL1, self._NL2, self._NL3, self._NL4 = [np.zeros(n, dtype=np.complex128) for _ in range(4)]
+        self._k = np.zeros(n, dtype=np.complex128)
 
-    def _updateCoeffs(self, h):
-        z = h * self.linop
+    def update_coeffs(self, h):
+        """Update coefficients if step size h changed"""
+        z = h * self.lin_op
         self._EL = np.exp(z)
         self._EL2 = np.exp(z / 2)
 
-    def _N1_init(self, u):
+    def n1_init(self, u):
         """Need to initialize N1 before first updateStage call"""
-        self._NL1 = self.NLfunc(u)
+        self._NL1 = self.nl_func(u)
 
-    def _updateStages(self, u, h):
+    def update_stages(self, u, h):
         """One RK step"""
         self._k = self._EL2 * u + h * self._EL2 * self._NL1 / 2.0
-        self._NL2 = self.NLfunc(self._k)
+        self._NL2 = self.nl_func(self._k)
         self._k = self._EL2 * u + h * self._NL2 / 2.0
-        self._NL3 = self.NLfunc(self._k)
+        self._NL3 = self.nl_func(self._k)
         self._k = self._EL * u + h * self._EL2 * self._NL3
-        self._NL4 = self.NLfunc(self._k)
+        self._NL4 = self.nl_func(self._k)
         self._k = self._EL * u + h * (
             self._EL * self._NL1 / 6.0 + self._EL2 * self._NL2 / 3.0 + self._EL2 * self._NL3 / 3.0 + self._NL4 / 6.0
         )
-        self._NL1 = self.NLfunc(self._k)  # FSAL principle
+        self._NL1 = self.nl_func(self._k)  # FSAL principle
         return self._k
 
 
-class _IF4_NonDiagonal:
+class _IF4NonDiagonal:  # pylint: disable=R0903
     """IF4 non-diagonal system strategy for IF4 solver"""
 
-    def __init__(self, linop, NLfunc):
-        self.linop = linop
-        self.NLfunc = NLfunc
+    def __init__(self, lin_op, nl_func):
+        self.lin_op = lin_op
+        self.nl_func = nl_func
 
-        N = linop.shape[0]
-        self._EL, self._EL2 = [np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(2)]
-        self._NL1, self._NL2, self._NL3, self._NL4 = [np.zeros(N, dtype=np.complex128) for _ in range(4)]
-        self._k = np.zeros(N, dtype=np.complex128)
+        n = lin_op.shape[0]
+        self._EL, self._EL2 = [np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(2)]
+        self._NL1, self._NL2, self._NL3, self._NL4 = [np.zeros(n, dtype=np.complex128) for _ in range(4)]
+        self._k = np.zeros(n, dtype=np.complex128)
 
-    def _updateCoeffs(self, h):
-        z = h * self.linop
+    def update_coeffs(self, h):
+        """Update coefficients if step size h changed"""
+        z = h * self.lin_op
         self._EL = expm(z)
         self._EL2 = expm(z / 2)
 
-    def _N1_init(self, u):
-        self._NL1 = self.NLfunc(u)
+    def n1_init(self, u):
+        """Need to initialize N1 before first updateStage call"""
+        self._NL1 = self.nl_func(u)
 
-    def _updateStages(self, u, h):
+    def update_stages(self, u, h):
+        """One RK step"""
         self._k = self._EL2.dot(u) + h * self._EL2.dot(self._NL1 / 2.0)
-        self._NL2 = self.NLfunc(self._k)
+        self._NL2 = self.nl_func(self._k)
         self._k = self._EL2.dot(u) + h * self._NL2 / 2.0
-        self._NL3 = self.NLfunc(self._k)
+        self._NL3 = self.nl_func(self._k)
         self._k = self._EL.dot(u) + h * self._EL2.dot(self._NL3)
-        self._NL4 = self.NLfunc(self._k)
+        self._NL4 = self.nl_func(self._k)
         self._k = self._EL.dot(u) + h * (
             self._EL.dot(self._NL1 / 6.0)
             + self._EL2.dot(self._NL2 / 3.0)
             + self._EL2.dot(self._NL3 / 3.0)
             + self._NL4 / 6.0
         )
-        self._NL1 = self.NLfunc(self._k)  # FSAL principle
+        self._NL1 = self.nl_func(self._k)  # FSAL principle
         return self._k
 
 
@@ -83,8 +89,8 @@ class IF4(StiffSolverCS):
 
     ATTRIBUTES
     __________
-    linop : np.array
-    NLfunc : function
+    lin_op : np.array
+    nl_func : function
     t : time-array stored with evolve function call
     u : output-array stored with evolve function call
     logs : array of info stored related to the solver
@@ -99,45 +105,46 @@ class IF4(StiffSolverCS):
     minh : float
     """
 
-    def __init__(self, linop: np.ndarray, NLfunc: Callable[[np.ndarray], np.ndarray]):
+    def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray]):
         """
         INPUTS
         ______
 
-        linop : np.array
+        lin_op : np.array
             Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D numpy array (matrix)
             or a 1D array (diagonal system). L can be either real-valued or complex-valued.
 
-        NLfunc : function
+        nl_func : function
             Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a complex or real-valued function.
 
         """
 
-        super().__init__(linop, NLfunc)
-        self._method = Union[_IF4_Diagonal, _IF4_NonDiagonal]
+        super().__init__(lin_op, nl_func)
+        self._method = Union[_IF4Diagonal, _IF4NonDiagonal]
         if self._diag:
-            self._method = _IF4_Diagonal(linop, NLfunc)
+            self._method = _IF4Diagonal(lin_op, nl_func)
         else:
-            self._method = _IF4_NonDiagonal(linop, NLfunc)
-        self._reset()
+            self._method = _IF4NonDiagonal(lin_op, nl_func)
+        self.__n1_init = False
+        self._h_coeff = None
 
     def _reset(self):
         """Resets solver to its initial state"""
-        self.__N1_init = False
+        self.__n1_init = False
         self._h_coeff = None
 
-    def _updateCoeffs(self, h):
+    def _update_coeffs(self, h):
         """Update coefficients if step size h changed"""
         if h == self._h_coeff:
             return
         self._h_coeff = h
-        self._method._updateCoeffs(h)
+        self._method.update_coeffs(h)
         self.logs.append("IF4 coefficients updated")
 
-    def _updateStages(self, u, h):
-        """Computes u_{n+1} from u_{n} through one RK passthrough"""
-        self._updateCoeffs(h)
-        if not self.__N1_init:
-            self._method._N1_init(u)
-            self.__N1_init = True
-        return self._method._updateStages(u, h)
+    def _update_stages(self, u, h):
+        """compute_s u_{n+1} from u_{n} through one RK passthrough"""
+        self._update_coeffs(h)
+        if not self.__n1_init:
+            self._method.n1_init(u)
+            self.__n1_init = True
+        return self._method.update_stages(u, h)

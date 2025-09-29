@@ -1,243 +1,264 @@
-from rkstiff.solver import StiffSolverAS
-import numpy as np
+"""IF34: Integrating Factor 4(3) adaptive step solver"""
+
 from typing import Callable, Union
+import numpy as np
 from scipy.linalg import expm
+from rkstiff.solver import StiffSolverAS, SolverConfig
 
 
-class _IF34_Diagonal:
+class _If34Diagonal:  # pylint: disable=too-few-public-methods
     """
-    IF34 diagonal system strategy for IF34 solver
+    IF34 diagonal system strategy for IF34 solver.
+
+    Optimized implementation for diagonal linear operators using element-wise operations.
     """
 
-    def __init__(self, linop, NLfunc):
-        self.linop = linop
-        self.NLfunc = NLfunc
+    def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray]) -> None:
+        """Initialize IF34 diagonal system strategy."""
+        self.lin_op = lin_op
+        self.nl_func = nl_func
 
-        N = linop.shape[0]
-        self._EL, self._EL2 = [np.zeros(N, dtype=np.complex128) for _ in range(2)]
-        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [np.zeros(N, dtype=np.complex128) for _ in range(5)]
-        self._k = np.zeros(N, dtype=np.complex128)
-        self._err = np.zeros(N, dtype=np.complex128)
+        n = lin_op.shape[0]
+        self._EL, self._EL2 = [np.zeros(n, dtype=np.complex128) for _ in range(2)]
+        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [np.zeros(n, dtype=np.complex128) for _ in range(5)]
+        self._k = np.zeros(n, dtype=np.complex128)
+        self._err = np.zeros(n, dtype=np.complex128)
 
-    def _updateCoeffs(self, h):
-        z = h * self.linop
-        self._updateCoeffsDiagonal(h, z)
+    def update_coeffs(self, h: float) -> None:
+        """Update coefficients based on step size h."""
+        z = h * self.lin_op
+        self._update_coeffs_diagonal(z)
 
-    def _updateCoeffsDiagonal(self, h, z):
+    def _update_coeffs_diagonal(self, z: np.ndarray) -> None:
+        """Compute element-wise coefficients for diagonal z = h*L."""
         self._EL = np.exp(z)
         self._EL2 = np.exp(z / 2)
 
-    def _N1_init(self, u):
-        self._NL1 = self.NLfunc(u)
+    def n1_init(self, u: np.ndarray) -> None:
+        """Initialize first nonlinear evaluation NL1 = nl_func(u_n)"""
+        self._NL1 = self.nl_func(u)
 
-    def _updateStages(self, u, h, accept):
+    def update_stages(self, u: np.ndarray, h: float, accept: bool) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Update stages and return u_{n+1} and error estimate.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current state vector.
+        h : float
+            Time step size.
+        accept : bool
+            Whether the previous step was accepted (FSAL principle).
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            Next state vector and error estimate.
+        """
         if accept:
             self._NL1 = self._NL5.copy()
 
         self._k = self._EL2 * u + h * self._EL2 * self._NL1 / 2.0
-        self._NL2 = self.NLfunc(self._k)
+        self._NL2 = self.nl_func(self._k)
         self._k = self._EL2 * u + h * self._NL2 / 2.0
-        self._NL3 = self.NLfunc(self._k)
+        self._NL3 = self.nl_func(self._k)
         self._k = self._EL * u + h * self._EL2 * self._NL3
-        self._NL4 = self.NLfunc(self._k)
+        self._NL4 = self.nl_func(self._k)
         self._k = self._EL * u + h * (
             self._EL * self._NL1 / 6.0 + self._EL2 * self._NL2 / 3.0 + self._EL2 * self._NL3 / 3.0 + self._NL4 / 6.0
         )
-        self._NL5 = self.NLfunc(self._k)
+        self._NL5 = self.nl_func(self._k)
         self._err = h * (self._NL4 - self._NL5) / 6.0
         return self._k, self._err
 
 
-class _IF34_Diagonalized(_IF34_Diagonal):
+class _If34Diagonalized(_If34Diagonal):
     """
-    IF34 non-diagonal system with eigenvector diagonalization strategy for IF34 solver
+    IF34 non-diagonal system with eigenvector diagonalization strategy.
+
+    Uses eigenvalue decomposition to transform the system into diagonal form.
     """
 
-    def __init__(self, linop, NLfunc):
-        super().__init__(linop, NLfunc)
-        if len(linop.shape) == 1:
-            raise Exception("Cannot diagonalize a 1D system")
-        linop_cond = np.linalg.cond(linop)
-        if linop_cond > 1e16:
-            raise Exception("Cannot diagonalize a non-invertible linear operator L")
-        if linop_cond > 1000:
+    def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray]) -> None:
+        """Initialize IF34 diagonalized system strategy"""
+        super().__init__(lin_op, nl_func)
+        if len(lin_op.shape) == 1:
+            raise ValueError("Cannot diagonalize a 1D system")
+        lin_op_cond = np.linalg.cond(lin_op)
+        if lin_op_cond > 1e16:
+            raise ValueError("Cannot diagonalize a non-invertible linear operator L")
+        if lin_op_cond > 1000:
             print(
-                """Warning: linear matrix array has a large condition number of {:.2f},
-            method may be unstable""".format(
-                    linop_cond
-                )
+                f"Warning: linear matrix array has a large condition number of "
+                f"{lin_op_cond:.2f}, method may be unstable"
             )
-        self._eig_vals, self._S = np.linalg.eig(linop)
+        self._eig_vals, self._S = np.linalg.eig(lin_op)
         self._Sinv = np.linalg.inv(self._S)
-        self._v = np.zeros(linop.shape[0])
+        self._v = np.zeros(lin_op.shape[0])
 
-    def _updateCoeffs(self, h):
+    def update_coeffs(self, h: float) -> None:
+        """Update coefficients using eigenvalues."""
         z = h * self._eig_vals
-        self._updateCoeffsDiagonal(h, z)
+        self._update_coeffs_diagonal(z)
 
-    def _N1_init(self, u):
-        self._NL1 = self._Sinv.dot(self.NLfunc(u))
+    def n1_init(self, u: np.ndarray) -> None:
+        """Initialize first nonlinear evaluation in transformed basis."""
+        self._NL1 = self._Sinv.dot(self.nl_func(u))
         self._v = self._Sinv.dot(u)
 
-    def _updateStages(self, u, h, accept):
+    def update_stages(self, u, h, accept):
+        """Update stages and return u_{n+1} and error estimate"""
         # Use First is same as last principle (FSAL) -> k5 stage is input u for next step
         if accept:
             self._NL1 = self._NL5.copy()
             self._v = self._Sinv.dot(u)
 
         self._k = self._EL2 * self._v + h * self._EL2 * self._NL1 / 2.0
-        self._NL2 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
+        self._NL2 = self._Sinv.dot(self.nl_func(self._S.dot(self._k)))
         self._k = self._EL2 * self._v + h * self._NL2 / 2.0
-        self._NL3 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
+        self._NL3 = self._Sinv.dot(self.nl_func(self._S.dot(self._k)))
         self._k = self._EL * self._v + h * self._EL2 * self._NL3
-        self._NL4 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
+        self._NL4 = self._Sinv.dot(self.nl_func(self._S.dot(self._k)))
         self._k = self._EL * self._v + h * (
             self._EL * self._NL1 / 6.0 + self._EL2 * self._NL2 / 3.0 + self._EL2 * self._NL3 / 3.0 + self._NL4 / 6.0
         )
-        self._NL5 = self._Sinv.dot(self.NLfunc(self._S.dot(self._k)))
+        self._NL5 = self._Sinv.dot(self.nl_func(self._S.dot(self._k)))
         self._err = h * (self._NL4 - self._NL5) / 6.0
         return self._S.dot(self._k), self._err
 
 
-class _IF34_NonDiagonal:
+class _If34NonDiagonal:  # pylint: disable=too-few-public-methods
     """
-    IF34 non-diagonal system strategy for IF34 solver
+    IF34 non-diagonal system strategy using full matrix operations.
+
+    Uses matrix exponentials for general (non-diagonalizable) linear operators.
     """
 
-    def __init__(self, linop, NLfunc):
-        self.linop = linop
-        self.NLfunc = NLfunc
+    def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray]) -> None:
+        """Initialize IF34 non-diagonal system strategy"""
+        self.lin_op = lin_op
+        self.nl_func = nl_func
 
-        N = linop.shape[0]
-        self._EL, self._EL2 = [np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(2)]
-        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [np.zeros(N, dtype=np.complex128) for _ in range(5)]
-        self._k = np.zeros(N, dtype=np.complex128)
-        self._err = np.zeros(N, dtype=np.complex128)
+        n = lin_op.shape[0]
+        self._EL, self._EL2 = [np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(2)]
+        self._NL1, self._NL2, self._NL3, self._NL4, self._NL5 = [np.zeros(n, dtype=np.complex128) for _ in range(5)]
+        self._k = np.zeros(n, dtype=np.complex128)
+        self._err = np.zeros(n, dtype=np.complex128)
 
-    def _updateCoeffs(self, h):
-        z = h * self.linop
+    def update_coeffs(self, h: float) -> None:
+        """Update matrix exponential coefficients based on step size h."""
+        z = h * self.lin_op
         self._EL = expm(z)
         self._EL2 = expm(z / 2)
 
-    def _N1_init(self, u):
-        self._NL1 = self.NLfunc(u)
+    def n1_init(self, u: np.ndarray) -> None:
+        """Initialize first nonlinear evaluation NL1 = nl_func(u_n)."""
+        self._NL1 = self.nl_func(u)
 
-    def _updateStages(self, u, h, accept):
+    def update_stages(self, u: np.ndarray, h: float, accept: bool) -> tuple[np.ndarray, np.ndarray]:
+        """Update stages and return u_{n+1} and error estimate"""
         # Use First is same as last principle (FSAL) -> k5 stage is input u for next step
         if accept:
             self._NL1 = self._NL5.copy()
 
         self._k = self._EL2.dot(u) + h * self._EL2.dot(self._NL1 / 2.0)
-        self._NL2 = self.NLfunc(self._k)
+        self._NL2 = self.nl_func(self._k)
         self._k = self._EL2.dot(u) + h * self._NL2 / 2.0
-        self._NL3 = self.NLfunc(self._k)
+        self._NL3 = self.nl_func(self._k)
         self._k = self._EL.dot(u) + h * self._EL2.dot(self._NL3)
-        self._NL4 = self.NLfunc(self._k)
+        self._NL4 = self.nl_func(self._k)
         self._k = self._EL.dot(u) + h * (
             self._EL.dot(self._NL1 / 6.0)
             + self._EL2.dot(self._NL2 / 3.0)
             + self._EL2.dot(self._NL3 / 3.0)
             + self._NL4 / 6.0
         )
-        self._NL5 = self.NLfunc(self._k)
+        self._NL5 = self.nl_func(self._k)
         self._err = h * (self._NL4 - self._NL5) / 6.0
         return self._k, self._err
 
 
 class IF34(StiffSolverAS):
     """
-    Integrating factor adaptive step solver of 4th order with 3rd order embedding
+    Fourth-order Integrating Factor solver with adaptive stepping.
 
-    ATTRIBUTES
-    __________
-    linop : np.array
-    NLfunc : function
-    t : time-array stored with evolve function call
-    u : output-array stored with evolve function call
-    logs : array of info stored related to the solver
+    Implements the IF(3,4) scheme with an embedded third-order method for
+    error estimation and adaptive time step control. Suitable for stiff
+    systems of the form dU/dt = L*U + NL(U).
 
-    StiffSolverAS Parameters (see StiffSolverAS class in solver module)
-    ________________________
-    epsilon : float
-    incrF : float
-    decrF : float
-    safetyF : float
-    adapt_cutoff : float
-    minh : float
+    Parameters
+    ----------
+    lin_op : np.ndarray
+        Linear operator L in the system dU/dt = L*U + NL(U).
+        Can be 1D (diagonal) or 2D (full matrix).
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function nl_func(U).
+    config : SolverConfig, optional
+        Solver configuration for adaptive stepping parameters.
+    diagonalize : bool, optional
+        If True, diagonalize the linear operator via eigenvalue decomposition.
+
+    Attributes
+    ----------
+    t : np.ndarray
+        Time values from most recent call to evolve().
+    u : np.ndarray
+        Solution array from most recent call to evolve().
+    logs : list
+        Log messages recording solver operations.
+
+    Notes
+    -----
+    Adaptive stepping parameters (epsilon, safety factors, etc.) are
+    inherited from the StiffSolverAS base class via the config parameter.
     """
 
-    def __init__(
+    _method: Union[_If34Diagonal, _If34Diagonalized, _If34NonDiagonal]
+
+    def __init__(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
-        linop: np.ndarray,
-        NLfunc: Callable[[np.ndarray], np.ndarray],
-        epsilon: float = 1e-4,
-        incrF: float = 1.25,
-        decrF: float = 0.85,
-        safetyF: float = 0.8,
-        adapt_cutoff: float = 0.01,
-        minh: float = 1e-16,
+        lin_op: np.ndarray,
+        nl_func: Callable[[np.ndarray], np.ndarray],
+        config: SolverConfig = SolverConfig(),
         diagonalize: bool = False,
-    ):
-        """
-        INPUTS
-        ______
-
-        linop : np.array
-            Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D numpy array (matrix)
-            or a 1D array (diagonal system). L can be either real-valued or complex-valued.
-
-        NLfunc : function
-            Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a complex or real-valued function.
-
-        diagonalize : bool, optional
-            Diagonalize the linear operator (matrix) and solve the diagonalized system
-
-        StiffSolverAS variables: epsilon, incrF, decrF, safetyF, adapt_cutoff, minh
-                        (see StiffSolverAS documentation from solver module)
-        """
-
-        super().__init__(
-            linop,
-            NLfunc,
-            epsilon=epsilon,
-            incrF=incrF,
-            decrF=decrF,
-            safetyF=safetyF,
-            adapt_cutoff=adapt_cutoff,
-            minh=minh,
-        )
-        self._method = Union[_IF34_Diagonal, _IF34_Diagonalized, _IF34_NonDiagonal]
+    ) -> None:
+        """Initialize the IF34 adaptive solver."""
+        super().__init__(lin_op, nl_func, config=config)
+        self._method = Union[_If34Diagonal, _If34Diagonalized, _If34NonDiagonal]
         if self._diag:
-            self._method = _IF34_Diagonal(linop, NLfunc)
+            self._method = _If34Diagonal(lin_op, nl_func)
         else:
             if diagonalize:
-                self._method = _IF34_Diagonalized(linop, NLfunc)
+                self._method = _If34Diagonalized(lin_op, nl_func)
             else:
-                self._method = _IF34_NonDiagonal(linop, NLfunc)
-        self._reset()
-
-    def _reset(self):
-        # Resets solver to its initial state
-        self.__N1_init = False
+                self._method = _If34NonDiagonal(lin_op, nl_func)
+        self.__n1_init = False
         self._h_coeff = None
         self._accept = False
 
-    def _updateCoeffs(self, h):
-        # Update coefficients if step size h changed
+    def _reset(self) -> None:
+        """Reset solver to its initial state."""
+        self.__n1_init = False
+        self._h_coeff = None
+        self._accept = False
+
+    def _update_coeffs(self, h: float) -> None:
+        """Update coefficients if step size h changed."""
         if h == self._h_coeff:
             return
         self._h_coeff = h
-        self._method._updateCoeffs(h)
+        self._method.update_coeffs(h)
         self.logs.append("IF34 coefficients updated")
 
-    def _updateStages(self, u, h):
-        # Computes u_{n+1} from u_{n} through one RK passthrough
-        self._updateCoeffs(h)
-        if not self.__N1_init:
-            self._method._N1_init(u)
-            self.__N1_init = True
-        return self._method._updateStages(u, h, self._accept)
+    def _update_stages(self, u: np.ndarray, h: float) -> tuple[np.ndarray, np.ndarray]:
+        """Compute u_{n+1} from u_n through one RK pass."""
+        self._update_coeffs(h)
+        if not self.__n1_init:
+            self._method.n1_init(u)
+            self.__n1_init = True
+        return self._method.update_stages(u, h, self._accept)
 
-    def _q(self):
-        # Order variable for computing suggested step size (embedded order + 1)
+    def _q(self) -> int:
+        """Return order for computing suggested step size (embedded order + 1)."""
         return 4

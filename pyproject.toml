@@ -41,7 +41,7 @@ local_scheme = "node-and-date"    # optional, controls local version identifiers
 
 [project.optional-dependencies]
 demo = [
-    "matplotlib",
+    "matplotlib>=3.8.0",
     "jupyter"
 ]
 dev = [

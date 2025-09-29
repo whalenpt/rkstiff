@@ -60,9 +60,9 @@ Each of the solvers is a python class (UPPERCASE) stored in a module of the same
 
 ```python
 from rkstiff import etd35
-L = # some linear operator 
-def NL(u): #  nonlinear function defined here 
-solver = etd35.ETD35(linop=L,NLfunc=NL)
+linear_op = # some linear operator 
+def nl_func(u): #  nonlinear function defined here 
+solver = etd35.ETD35(lin_op=linear_op,nl_func=nl_func)
 u0 = # initial field to be propagated 
 t0 =  # initial time 
 tf = # final time
@@ -83,30 +83,30 @@ Consider the Kuramoto-Sivashinsky (KS) equation:
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 v<sub>t</sub> = k<sub>x</sub><sup>2</sup>(1- k<sub>x</sub><sup>2</sup>)v - F \{ F<sup>-1</sup> \{v\} F<sup>-1</sup>\{ i k<sub>x</sub> v\} \} 
 <br>
-where v = F{u}. We can then plug L = k<sub>x</sub><sup>2</sup>(1- k<sub>x</sub><sup>2</sup>), and NL(u) =  - F \{ F<sup>-1</sup> \{v\} F<sup>-1</sup>\{ i k<sub>x</sub> v\} \} into an rkstiff solver and propagate the field u in spectral space, converting back to real space when desired. For exampe, the python code may look something like this
+where v = F{u}. We can then plug linear_op = k<sub>x</sub><sup>2</sup>(1- k<sub>x</sub><sup>2</sup>), and NL(u) =  - F \{ F<sup>-1</sup> \{v\} F<sup>-1</sup>\{ i k<sub>x</sub> v\} \} into an rkstiff solver and propagate the field u in spectral space, converting back to real space when desired. For exampe, the python code may look something like this
 ```python
 import numpy as np
 from rkstiff import grids
 from rkstiff import if34
 
 # uniform grid spacing, real-valued u -> construct_x_kx_rfft
-N = 8192
+n = 8192
 a,b = 0,32*np.pi
-x,kx = grids.construct_x_kx_rfft(N,a,b) 
+x,kx = grids.construct_x_kx_rfft(n,a,b) 
 
-L = kx**2*(1-kx**2)
-def NL(uFFT):
-    u = np.fft.irfft(uFFT)
-    ux = np.fft.irfft(1j*kx*uFFT)
+linear_op = kx**2*(1-kx**2)
+def nl_func(u_fft):
+    u = np.fft.irfft(u_fft)
+    ux = np.fft.irfft(1j*kx*u_fft)
     return -np.fft.rfft(u*ux)
 
 u0 = np.cos(x/16)*(1.+np.sin(x/16))
-u0FFT = np.fft.rfft(u0)
-solver = if34.IF34(linop=L,NLfunc=NL)
-ufFFT = solver.evolve(u0FFT,t0=0,tf=50,store_freq=20) # store every 20th step in solver.u and solver.t
+u0_fft = np.fft.rfft(u0)
+solver = if34.IF34(lin_op=linear_op,nl_func=nl_func)
+ufFFT = solver.evolve(u0_fft,t0=0,tf=50,store_freq=20) # store every 20th step in solver.u and solver.t
 U = []
-for uFFT in solver.u:
-    U.append(np.fft.irfft(uFFT))
+for u_fft in solver.u:
+    U.append(np.fft.irfft(u_fft))
 U = np.array(U)
 t = np.array(solver.t)
 ```

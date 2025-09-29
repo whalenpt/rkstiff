@@ -14,5 +14,6 @@ log
 lib
 bin
 pyvenv*
+myenv
 .vscode
 
