@@ -1,13 +1,15 @@
-from rkstiff.grids import construct_x_kx_rfft, construct_x_kx_fft
-from rkstiff.grids import construct_x_Dx_cheb
-from rkstiff.derivatives import dx_rfft, dx_fft
+""" Tests for the derivative functions."""
 import numpy as np
+from rkstiff.grids import construct_x_kx_rfft, construct_x_kx_fft
+from rkstiff.grids import construct_x_dx_cheb
+from rkstiff.derivatives import dx_rfft, dx_fft
 
 
 def test_periodic_dx_rfft():
-    N = 100
+    """ Test the Fourier derivative on a periodic function."""
+    n = 100
     a, b = 0, 2 * np.pi
-    x, kx = construct_x_kx_rfft(N, a, b)
+    x, kx = construct_x_kx_rfft(n, a, b)
     u = np.sin(x)
     ux_exact = np.cos(x)
     ux_approx = dx_rfft(kx, u)
@@ -15,9 +17,10 @@ def test_periodic_dx_rfft():
 
 
 def test_zeroboundaries_dx_rfft():
-    N = 400
+    """ Test the Fourier derivative on a function with zero boundaries."""
+    n = 400
     a, b = -30.0, 30.0
-    x, kx = construct_x_kx_rfft(N, a, b)
+    x, kx = construct_x_kx_rfft(n, a, b)
     u = 1.0 / np.cosh(x)
     ux_exact = -np.tanh(x) / np.cosh(x)
     ux_approx = dx_rfft(kx, u)
@@ -25,9 +28,10 @@ def test_zeroboundaries_dx_rfft():
 
 
 def test_gauss_dx_rfft():
-    N = 128
+    """ Test the Fourier derivative on a Gaussian function."""
+    n = 128
     a, b = -10, 10
-    x, kx = construct_x_kx_rfft(N, a, b)
+    x, kx = construct_x_kx_rfft(n, a, b)
     u = np.exp(-(x**2))
     ux_exact = -2 * x * np.exp(-(x**2))
     ux_approx = dx_rfft(kx, u)
@@ -35,9 +39,10 @@ def test_gauss_dx_rfft():
 
 
 def test_manydx_rfft():
-    N = 128
+    """ Test multiple applications of the Fourier derivative."""
+    n = 128
     a, b = 0, 2 * np.pi
-    x, kx = construct_x_kx_rfft(N, a, b)
+    x, kx = construct_x_kx_rfft(n, a, b)
     u = np.sin(x)
     ux_exact = np.sin(x)
 
@@ -54,9 +59,10 @@ def test_manydx_rfft():
 
 
 def test_manydx_fft():
-    N = 128
+    """ Test multiple applications of the Fourier derivative."""
+    n = 128
     a, b = 0, 2 * np.pi
-    x, kx = construct_x_kx_fft(N, a, b)
+    x, kx = construct_x_kx_fft(n, a, b)
     u = np.sin(x)
     ux_exact = np.sin(x)
 
@@ -73,9 +79,10 @@ def test_manydx_fft():
 
 
 def test_periodic_dx_fft():
-    N = 100
+    """ Test the Fourier derivative on a periodic function."""
+    n = 100
     a, b = 0, 2 * np.pi
-    x, kx = construct_x_kx_fft(N, a, b)
+    x, kx = construct_x_kx_fft(n, a, b)
     u = np.sin(x)
     ux_exact = np.cos(x)
     ux_approx = dx_fft(kx, u)
@@ -83,9 +90,10 @@ def test_periodic_dx_fft():
 
 
 def test_zeroboundaries_dx_fft():
-    N = 400
+    """ Test the Fourier derivative on a function with zero boundaries."""
+    n = 400
     a, b = -30.0, 30.0
-    x, kx = construct_x_kx_fft(N, a, b)
+    x, kx = construct_x_kx_fft(n, a, b)
     u = 1.0 / np.cosh(x)
     ux_exact = -np.tanh(x) / np.cosh(x)
     ux_approx = dx_fft(kx, u)
@@ -93,34 +101,36 @@ def test_zeroboundaries_dx_fft():
 
 
 def test_gauss_dx_fft():
-    N = 128
+    """ Test the Fourier derivative on a Gaussian function."""
+    n = 128
     a, b = -10, 10
-    x, kx = construct_x_kx_fft(N, a, b)
+    x, kx = construct_x_kx_fft(n, a, b)
     u = np.exp(-(x**2))
     ux_exact = -2 * x * np.exp(-(x**2))
     ux_approx = dx_fft(kx, u)
     assert np.allclose(ux_exact, ux_approx)
 
 
-def test_exp_trig_x_Dx_cheb():
+def test_exp_trig_dx_cheb():
+    """ Test the Chebyshev derivative on a non-periodic function."""
     # standard interval [-1,1]
-    N = 20
+    n = 20
     a = -1
     b = 1
-    x, Dx = construct_x_Dx_cheb(N, -1, 1)
+    x, d_cheb_matrix = construct_x_dx_cheb(n, -1, 1)
     u = np.exp(x) * np.sin(5 * x)
-    Du_exact = np.exp(x) * (np.sin(5 * x) + 5 * np.cos(5 * x))
-    Du_approx = Dx.dot(u)
-    error = Du_exact - Du_approx
-    assert np.linalg.norm(error) / np.linalg.norm(Du_exact) < 1e-8
+    du_exact = np.exp(x) * (np.sin(5 * x) + 5 * np.cos(5 * x))
+    du_approx = d_cheb_matrix.dot(u)
+    error = du_exact - du_approx
+    assert np.linalg.norm(error) / np.linalg.norm(du_exact) < 1e-8
 
     # non-standard interval [-3,3]
-    N = 30
+    n = 30
     a = -3
     b = 3
-    x, Dx = construct_x_Dx_cheb(N, a, b)
+    x, d_cheb_matrix = construct_x_dx_cheb(n, a, b)
     u = np.exp(x) * np.sin(5 * x)
-    Du_exact = np.exp(x) * (np.sin(5 * x) + 5 * np.cos(5 * x))
-    Du_approx = Dx.dot(u)
-    error = Du_exact - Du_approx
-    assert np.linalg.norm(error) / np.linalg.norm(Du_exact) < 1e-7
+    du_exact = np.exp(x) * (np.sin(5 * x) + 5 * np.cos(5 * x))
+    du_approx = d_cheb_matrix.dot(u)
+    error = du_exact - du_approx
+    assert np.linalg.norm(error) / np.linalg.norm(du_exact) < 1e-7

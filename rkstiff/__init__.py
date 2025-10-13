@@ -1,6 +1,3 @@
-try:
-    import importlib_metadata as metadata
-except ModuleNotFoundError:
-    import importlib.metadata as metadata
+"""rkstiff package initialization."""
 
-__version__ = metadata.version("rkstiff")
+from .__version__ import version as __version__

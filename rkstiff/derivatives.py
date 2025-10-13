@@ -1,7 +1,11 @@
+"""rkstiff.derivatives
+Provides functions for taking derivatives in spectral space
+"""
+
 import numpy as np
 
 
-def dx_rfft(kx, u, n=1):
+def dx_rfft(kx, u, n =1):
     """Takes derivative(s) of a real valued array in spectral space
     INPUTS
         kx - wavenumbers of the spectral grid
@@ -11,22 +15,22 @@ def dx_rfft(kx, u, n=1):
         uxn - derivative of u to the nth power
     """
     if not isinstance(n, int):
-        raise TypeError("derivative order n must be an integer, it is {}".format(n))
+        raise TypeError(f"derivative order n must be an integer, it is {n}")
     if n < 0:
-        raise ValueError("derivative order n must non-negative, it is {}".format(n))
+        raise ValueError(f"derivative order n must non-negative, it is {n}")
 
     if n == 0:
         return u
 
-    uFFT = np.fft.rfft(u)
+    u_fft = np.fft.rfft(u)
     if n == 1:
-        uxn = np.fft.irfft(1j * kx * uFFT)
+        uxn = np.fft.irfft(1j * kx * u_fft)
     else:
-        uxn = np.fft.irfft(np.power(1j * kx, n) * uFFT)
+        uxn = np.fft.irfft(np.power(1j * kx, n) * u_fft)
     return uxn
 
 
-def dx_fft(kx, u, n=1):
+def dx_fft(kx, u, n =1):
     """Takes derivative(s) of a complex valued array in spectral space
     INPUTS
         kx - wavenumbers of the spectral grid
@@ -37,15 +41,15 @@ def dx_fft(kx, u, n=1):
     """
 
     if not isinstance(n, int):
-        raise TypeError("derivative order n must be an integer, it is {}".format(n))
+        raise TypeError(f"derivative order n must be an integer, it is {n}")
     if n < 0:
-        raise ValueError("derivative order n must non-negative, it is {}".format(n))
+        raise ValueError(f"derivative order n must non-negative, it is {n}")
     if n == 0:
         return u
 
-    uFFT = np.fft.fft(u)
+    u_fft = np.fft.fft(u)
     if n == 1:
-        uxn = np.fft.ifft(1j * kx * uFFT)
+        uxn = np.fft.ifft(1j * kx * u_fft)
     else:
-        uxn = np.fft.ifft(np.power(1j * kx, n) * uFFT)
+        uxn = np.fft.ifft(np.power(1j * kx, n) * u_fft)
     return uxn
