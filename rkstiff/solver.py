@@ -5,7 +5,7 @@ Provides base classes for adaptive-step and constant-step stiff solvers
 from abc import ABC, abstractmethod
 from typing import Tuple, Optional, Callable, Union, Literal
 import numpy as np
-from util.loghelper import get_solver_logger, set_log_level, _get_level_name
+from .util.loghelper import get_solver_logger, set_log_level, _get_level_name
 
 
 class SolverConfig:
@@ -156,8 +156,6 @@ class BaseSolver(ABC):
         Time points from most recent evolve() call.
     u : list
         Solution arrays from most recent evolve() call.
-    logs : list
-        Log messages from solver operations.
 
     Raises
     ------
@@ -196,7 +194,7 @@ class BaseSolver(ABC):
         self.logger.info("Initialized %s solver", self.__class__.__name__)
 
         # Initialize storage
-        self.t, self.u, self.logs = [], [], []
+        self.t, self.u = [], []
 
         # Validate and set operator properties
         dims = lin_op.shape
@@ -227,7 +225,7 @@ class BaseSolver(ABC):
         """
         Reset solver to initial state.
 
-        Clears stored time points, solution arrays, and logs. Prepares
+        Clears stored time points and solution arrays. Prepares
         solver for a new call to evolve() or step() with fresh initial conditions.
         """
 
@@ -342,11 +340,11 @@ class StiffSolverAS(BaseSolver):
         """
         Reset solver to initial state.
 
-        Clears stored time points, solution arrays, and logs. Prepares
+        Clears stored time points and solution arrays. Prepares
         solver for a new call to evolve() or step() with fresh initial conditions.
         """
         self.logger.debug("Resetting solver state")
-        self.t, self.u, self.logs = [], [], []
+        self.t, self.u = [], []
         self.__t0, self.__tf, self.__tc = 0, 0, 0
         self._accept = False
         self._reset()
@@ -436,12 +434,10 @@ class StiffSolverAS(BaseSolver):
                     "size with an acceptible amount of error."
                 )
                 self.logger.error(failure_str)
-                self.logs.append(failure_str)
                 raise self.MaxLoopsExceeded(failure_str)
             if h < self.config.minh:
                 failure_str = "Solver failed: adaptive step reached minimum step size"
                 self.logger.error(failure_str)
-                self.logs.append(failure_str)
                 raise self.MinimumStepReached(failure_str)
 
     def _compute_s(self, u: np.ndarray, err: np.ndarray) -> float:
@@ -488,18 +484,15 @@ class StiffSolverAS(BaseSolver):
         if np.isinf(s) or np.isnan(s):
             msg = "inf or nan number encountered: reducing step size to %s" % h
             self.logger.warning(msg)
-            self.logs.append(msg)
             return self.MIN_S * h
 
         s = np.max([s, self.MIN_S])  # dont let s be too small
         s = np.min([s, self.config.decr_f])  # dont let s be too close to 1
         msg = "step rejected with s = %.2f" % s
         self.logger.debug(msg)
-        self.logs.append(msg)
         hnew = s * h
         msg = "reducing step size to %s" % hnew
         self.logger.debug(msg)
-        self.logs.append(msg)
         return hnew
 
     def _accept_step_size(self, s: float, h: float) -> float:
@@ -522,14 +515,12 @@ class StiffSolverAS(BaseSolver):
         s = np.min([s, self.MAX_S])  # dont let s be too big
         msg = "step accepted with s = %.2f" % s
         self.logger.debug(msg)
-        self.logs.append(msg)
 
         # if s much larger than 1, increase the step size
         if s > self.config.incr_f:
             h_suggest = s * h
             msg = "increasing step size to %s" % h_suggest
             self.logger.debug(msg)
-            self.logs.append(msg)
             return h_suggest
         return h
 
@@ -681,11 +672,11 @@ class StiffSolverCS(BaseSolver):
         """
         Reset solver to initial state.
 
-        Clears stored time points, solution arrays, and logs. Prepares
+        Clears stored time points and solution arrays. Prepares
         solver for a new call to evolve() or step() with fresh initial conditions.
         """
         self.logger.debug("Resetting solver state")
-        self.t, self.u, self.logs = [], [], []
+        self.t, self.u = [], []
         self.__tf, self.__tc = 0, 0
         self._reset()
 

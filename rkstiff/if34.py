@@ -1,6 +1,6 @@
 """IF34: Integrating Factor 4(3) adaptive step solver"""
 
-from typing import Callable, Union
+from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
 from rkstiff.solver import StiffSolverAS, SolverConfig
@@ -222,9 +222,10 @@ class IF34(StiffSolverAS):
         nl_func: Callable[[np.ndarray], np.ndarray],
         config: SolverConfig = SolverConfig(),
         diagonalize: bool = False,
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ) -> None:
         """Initialize the IF34 adaptive solver."""
-        super().__init__(lin_op, nl_func, config=config)
+        super().__init__(lin_op, nl_func, config=config, loglevel=loglevel)
         self._method = Union[_If34Diagonal, _If34Diagonalized, _If34NonDiagonal]
         if self._diag:
             self._method = _If34Diagonal(lin_op, nl_func)
@@ -249,7 +250,7 @@ class IF34(StiffSolverAS):
             return
         self._h_coeff = h
         self._method.update_coeffs(h)
-        self.logs.append("IF34 coefficients updated")
+        self.logger.debug("IF34 coefficients updated for step size h=%s", h)
 
     def _update_stages(self, u: np.ndarray, h: float) -> tuple[np.ndarray, np.ndarray]:
         """Compute u_{n+1} from u_n through one RK pass."""

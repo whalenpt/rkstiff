@@ -2,6 +2,7 @@
 Provides classes and functions for Exponential Time Differencing Runge-Kutta methods
 """
 
+from typing import Union, Literal
 import numpy as np
 from rkstiff.solver import StiffSolverAS, StiffSolverCS, SolverConfig
 
@@ -121,8 +122,15 @@ class ETDAS(StiffSolverAS):
 
     """
 
-    def __init__(self, lin_op, nl_func, config=SolverConfig(), etd_config=ETDConfig()):
-        super().__init__(lin_op, nl_func, config)
+    def __init__(
+        self,
+        lin_op,
+        nl_func,
+        config=SolverConfig(),
+        etd_config=ETDConfig(),
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
+    ):
+        super().__init__(lin_op, nl_func, config, loglevel=loglevel)
         self.etd_config = etd_config
         self._h_coeff = None
 
@@ -145,7 +153,13 @@ class ETDCS(StiffSolverCS):
 
     """
 
-    def __init__(self, lin_op, nl_func, etd_config=ETDConfig()):
-        super().__init__(lin_op, nl_func)
+    def __init__(
+        self,
+        lin_op,
+        nl_func,
+        etd_config=ETDConfig(),
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
+    ):
+        super().__init__(lin_op, nl_func, loglevel=loglevel)
         self.etd_config = etd_config
         self._h_coeff = None

@@ -1,6 +1,6 @@
 """rkstiff.etd4: Exponential time-differencing constant step solver of 4th order (Krogstad)"""
 
-from typing import Callable, Union
+from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
 from rkstiff.etd import ETDCS, ETDConfig, phi1, phi2, phi3
@@ -309,8 +309,6 @@ class ETD4(ETDCS):
         Time values from the most recent call to evolve() method.
     u : np.ndarray
         Solution array from the most recent call to evolve() method.
-    logs : list
-        Log messages recording solver operations (coefficient updates, etc.).
 
     Notes
     -----
@@ -346,7 +344,11 @@ class ETD4(ETDCS):
     """
 
     def __init__(
-        self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray], etd_config: ETDConfig = ETDConfig()
+        self,
+        lin_op: np.ndarray,
+        nl_func: Callable[[np.ndarray], np.ndarray],
+        etd_config: ETDConfig = ETDConfig(),
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ) -> None:
         """
         Initialize the ETD4 solver.
@@ -388,7 +390,7 @@ class ETD4(ETDCS):
           until the first time step is taken.
         - The parent class ETDCS handles common setup and validation.
         """
-        super().__init__(lin_op, nl_func, etd_config=etd_config)
+        super().__init__(lin_op, nl_func, etd_config=etd_config, loglevel=loglevel)
         self._method = Union[_Etd4Diagonal, _Etd4NonDiagonal]
         if self._diag:
             self._method = _Etd4Diagonal(lin_op, nl_func, self.etd_config)
@@ -442,7 +444,7 @@ class ETD4(ETDCS):
             return
         self._h_coeff = h
         self._method.update_coeffs(h)
-        self.logs.append("ETD4 coefficients updated")
+        self.logger.debug("ETD4 coefficients updated for step size h=%s", h)
 
     def _update_stages(self, u: np.ndarray, h: float) -> np.ndarray:
         """

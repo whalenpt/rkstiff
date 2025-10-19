@@ -1,6 +1,6 @@
 """rkstiff.etd34: Exponential time-differencing adaptive step solver of 4th order."""
 
-from typing import Callable, Union
+from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
 from rkstiff.solver import SolverConfig
@@ -292,6 +292,7 @@ class ETD34(ETDAS):
         config: SolverConfig = SolverConfig(),
         etd_config: ETDConfig = ETDConfig(),
         diagonalize: bool = False,
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ):
         """
         Initialize the ETD(3,4) solver.
@@ -325,7 +326,7 @@ class ETD34(ETDAS):
         - From :class:`StiffSolverAS`: `epsilon`, `incrF`, `decrF`, `safetyF`,
           `adapt_cutoff`, and `minh`
         """
-        super().__init__(lin_op, nl_func, config=config, etd_config=etd_config)
+        super().__init__(lin_op, nl_func, config=config, etd_config=etd_config, loglevel=loglevel)
         if self._diag:
             self._method = _Etd34Diagonal(lin_op, nl_func, self.etd_config)
         else:
@@ -366,7 +367,7 @@ class ETD34(ETDAS):
             return
         self._h_coeff = h
         self._method.update_coeffs(h)
-        self.logs.append("ETD34 coefficients updated")
+        self.logger.debug("ETD34 coefficients updated for step size h=%s", h)
 
     def _update_stages(self, u: np.ndarray, h: float) -> tuple[np.ndarray, np.ndarray]:
         """Compute u_{n+1} (and an error estimate) from u_n through one RK pass."""

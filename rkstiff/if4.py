@@ -1,6 +1,6 @@
 """ "IF4 solver module"""
 
-from typing import Callable, Union
+from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
 from rkstiff.solver import StiffSolverCS
@@ -105,7 +105,12 @@ class IF4(StiffSolverCS):
     minh : float
     """
 
-    def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray]):
+    def __init__(
+        self,
+        lin_op: np.ndarray,
+        nl_func: Callable[[np.ndarray], np.ndarray],
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
+    ):
         """
         INPUTS
         ______
@@ -119,7 +124,7 @@ class IF4(StiffSolverCS):
 
         """
 
-        super().__init__(lin_op, nl_func)
+        super().__init__(lin_op, nl_func, loglevel)
         self._method = Union[_IF4Diagonal, _IF4NonDiagonal]
         if self._diag:
             self._method = _IF4Diagonal(lin_op, nl_func)
@@ -139,7 +144,7 @@ class IF4(StiffSolverCS):
             return
         self._h_coeff = h
         self._method.update_coeffs(h)
-        self.logs.append("IF4 coefficients updated")
+        self.logger.debug("IF4 coefficients updated for step size h=%s", h)
 
     def _update_stages(self, u, h):
         """compute_s u_{n+1} from u_{n} through one RK passthrough"""
