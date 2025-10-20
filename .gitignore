@@ -14,6 +14,8 @@ log
 lib
 bin
 pyvenv*
+*venv*
 myenv
 .vscode
+coverage.xml
 

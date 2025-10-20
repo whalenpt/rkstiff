@@ -16,7 +16,7 @@ class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
         etd_config: ETDConfig,
     ) -> None:
         """Initialize ETD34 diagonal system strategy."""
-        self.lin_op = lin_op
+        self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
 
@@ -171,7 +171,7 @@ class _Etd34NonDiagonal:
 
     def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray], etd_config: ETDConfig):
         """Initialize the non-diagonal strategy."""
-        self.lin_op = lin_op
+        self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
 

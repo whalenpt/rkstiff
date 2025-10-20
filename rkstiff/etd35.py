@@ -22,7 +22,7 @@ class _Etd35Diagonal:
         etd_config: ETDConfig,
     ) -> None:
         """Initialize ETD35 diagonal solver state."""
-        self.lin_op = lin_op
+        self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
 
@@ -266,7 +266,7 @@ class _Etd35NonDiagonal:
         etd_config: ETDConfig,
     ) -> None:
         """Initialize ETD35 for non-diagonal systems."""
-        self.lin_op = lin_op
+        self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
 
