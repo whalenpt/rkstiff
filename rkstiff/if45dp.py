@@ -1,6 +1,6 @@
 """Integrating factor adaptive step solver of 5th order with 4rd order embedding."""
 
-from typing import Callable
+from typing import Callable, Literal, Union
 import numpy as np
 from rkstiff.solver import StiffSolverAS, SolverConfig
 
@@ -47,8 +47,9 @@ class IF45DP(StiffSolverAS):
         lin_op: np.ndarray,
         nl_func: Callable[[np.ndarray], np.ndarray],
         config: SolverConfig = SolverConfig(),
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ) -> None:
-        super().__init__(lin_op, nl_func, config=config)
+        super().__init__(lin_op, nl_func, config=config, loglevel=loglevel)
         if len(lin_op.shape) > 1:
             raise ValueError("IF45DP only handles 1D linear operators (diagonal systems): try IF34,ETD34, or ETD35")
         self._EL15, self._EL310, self._EL45, self._EL89, self._EL = [
@@ -216,8 +217,7 @@ class IF45DP(StiffSolverAS):
         self._r5 = -17253 * h * EL19 / 339200.0
         self._r6 = 22 * h / 525.0
         self._r7 = -h / 40.0
-
-        self.logs.append("IF45DP coefficients updated")
+        self.logger.debug("IF45 coefficients updated for step size h=%s", h)
 
     def _q(self) -> int:
         """

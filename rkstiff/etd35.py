@@ -5,7 +5,7 @@ time-differencing algorithm for stiff ODE systems. Supports diagonal,
 diagonalized, and full non-diagonal systems.
 """
 
-from typing import Callable, Union
+from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
 from rkstiff.etd import ETDAS, ETDConfig, phi1, phi2, phi3
@@ -431,6 +431,7 @@ class ETD35(ETDAS):
         config: SolverConfig = SolverConfig(),
         etd_config: ETDConfig = ETDConfig(),
         diagonalize: bool = False,
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ):
         """Initialize ETD35 adaptive solver."""
         super().__init__(
@@ -438,6 +439,7 @@ class ETD35(ETDAS):
             nl_func,
             config=config,
             etd_config=etd_config,
+            loglevel=loglevel,
         )
         if self._diag:
             self._method = _Etd35Diagonal(lin_op, nl_func, self.etd_config)
@@ -461,7 +463,7 @@ class ETD35(ETDAS):
             return
         self._h_coeff = h
         self._method.update_coeffs(h)
-        self.logs.append("ETD35 coefficients updated")
+        self.logger.debug("ETD35 coefficients updated for step size h=%s", h)
 
     def _update_stages(self, u: np.ndarray, h: float) -> tuple[np.ndarray, np.ndarray]:
         """

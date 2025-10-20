@@ -1,12 +1,12 @@
 """rkstiff.etd5: Exponential time-differencing constant step solver of 5th order."""
 
-from typing import Callable, Union
+from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
 from rkstiff.etd import ETDCS, ETDConfig, phi1, phi2, phi3
 
 
-class _Etd5Diagonal: # pylint: disable=too-few-public-methods
+class _Etd5Diagonal:  # pylint: disable=too-few-public-methods
     """
     ETD5 diagonal system strategy for ETD5 solver.
 
@@ -206,7 +206,7 @@ class _Etd5Diagonal: # pylint: disable=too-few-public-methods
         return self._k
 
 
-class _Etd5NonDiagonal: # pylint: disable=too-few-public-methods
+class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
     """
     ETD5 non-diagonal system strategy for ETD5 solver.
 
@@ -409,6 +409,7 @@ class ETD5(ETDCS):
     Automatically selects optimized implementation based on operator structure.
     Uses contour integration for computing matrix exponentials and phi functions.
     """
+
     _method: Union[_Etd5Diagonal, _Etd5NonDiagonal]
 
     def __init__(
@@ -416,6 +417,7 @@ class ETD5(ETDCS):
         lin_op: np.ndarray,
         nl_func: Callable[[np.ndarray], np.ndarray],
         etd_config: ETDConfig = ETDConfig(),
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ) -> None:
         """
         Initialize the ETD5 solver.
@@ -457,7 +459,7 @@ class ETD5(ETDCS):
           until the first time step is taken.
         - The parent class ETDCS handles common setup and validation.
         """
-        super().__init__(lin_op, nl_func, etd_config)
+        super().__init__(lin_op, nl_func, etd_config, loglevel)
         if self._diag:
             self._method = _Etd5Diagonal(lin_op, nl_func, self.etd_config)
         else:
@@ -511,7 +513,7 @@ class ETD5(ETDCS):
             return
         self._h_coeff = h
         self._method.update_coeffs(h)
-        self.logs.append("ETD5 coefficients updated")
+        self.logger.debug("ETD5 coefficients updated for step size h=%s", h)
 
     def _update_stages(self, u: np.ndarray, h: float) -> np.ndarray:
         """
