@@ -63,4 +63,4 @@ documentation = "https://github.com/whalenpt/rkstiff"
 repository = "https://github.com/whalenpt/rkstiff"
 
 [tool.black]
-line-length = 127
+line-length = 120
