@@ -22,7 +22,7 @@ class _Etd35Diagonal:
         etd_config: ETDConfig,
     ) -> None:
         """Initialize ETD35 diagonal solver state."""
-        self.lin_op = lin_op
+        self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
 
@@ -203,9 +203,8 @@ class _Etd35Diagonalized(_Etd35Diagonal):
         if lin_op_cond > 1e16:
             raise ValueError("Linear operator is non-invertible")
         if lin_op_cond > 1000:
-            print(
-                f"Warning: linear matrix array has a large condition number of "
-                f"{lin_op_cond:.2f}, method may be unstable"
+            self.logger.warning(
+                f"Linear matrix array has a large condition number of {lin_op_cond:.2f}, method may be unstable"
             )
         self._eig_vals, self._S = np.linalg.eig(lin_op)
         self._Sinv = np.linalg.inv(self._S)
@@ -266,7 +265,7 @@ class _Etd35NonDiagonal:
         etd_config: ETDConfig,
     ) -> None:
         """Initialize ETD35 for non-diagonal systems."""
-        self.lin_op = lin_op
+        self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
 

@@ -89,9 +89,8 @@ class _If34Diagonalized(_If34Diagonal):
         if lin_op_cond > 1e16:
             raise ValueError("Cannot diagonalize a non-invertible linear operator L")
         if lin_op_cond > 1000:
-            print(
-                f"Warning: linear matrix array has a large condition number of "
-                f"{lin_op_cond:.2f}, method may be unstable"
+            self.logger.warning(
+                f"Linear matrix array has a large condition number of {lin_op_cond:.2f}, method may be unstable"
             )
         self._eig_vals, self._S = np.linalg.eig(lin_op)
         self._Sinv = np.linalg.inv(self._S)

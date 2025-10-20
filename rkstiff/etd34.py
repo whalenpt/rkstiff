@@ -9,6 +9,7 @@ from rkstiff.etd import ETDAS, ETDConfig, phi1, phi2, phi3
 
 class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
     """ETD34 diagonal system strategy for ETD34 solver."""
+
     def __init__(
         self,
         lin_op: np.ndarray,
@@ -16,7 +17,7 @@ class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
         etd_config: ETDConfig,
     ) -> None:
         """Initialize ETD34 diagonal system strategy."""
-        self.lin_op = lin_op
+        self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
 
@@ -92,8 +93,7 @@ class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
         self._NL1 = self.nl_func(u)
 
     def update_stages(self, u: np.ndarray, accept: bool) -> tuple[np.ndarray, np.ndarray]:
-        """Perform the RK stage updates and return (k, error_estimate).
-        """
+        """Perform the RK stage updates and return (k, error_estimate)."""
         # Use First is same as last principle (FSAL) -> k5 stage is input u for next step
         if accept:
             self._NL1 = self._NL5.copy()
@@ -125,9 +125,8 @@ class _Etd34Diagonalized(_Etd34Diagonal):
             raise ValueError("cannot diagonalize a non-invertible linear operator L")
         if lin_op_cond > 1000:
             # Provide a friendly, single-line warning.
-            print(
-                f"Warning: linear matrix array has a large condition number of "
-                f"{lin_op_cond:.2f}, method may be unstable"
+            self.logger.warning(
+                f"Linear matrix array has a large condition number of {lin_op_cond:.2f}, method may be unstable"
             )
         self._eig_vals, self._S = np.linalg.eig(lin_op)
         self._Sinv = np.linalg.inv(self._S)
@@ -171,7 +170,7 @@ class _Etd34NonDiagonal:
 
     def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray], etd_config: ETDConfig):
         """Initialize the non-diagonal strategy."""
-        self.lin_op = lin_op
+        self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
 
@@ -239,10 +238,7 @@ class _Etd34NonDiagonal:
         self._k = self._EL.dot(u) + self._a41.dot(self._NL1) + self._a43.dot(self._NL3)
         self._NL4 = self.nl_func(self._k)
         self._k = (
-            self._EL.dot(u)
-            + self._a51.dot(self._NL1)
-            + self._a52.dot(self._NL2 + self._NL3)
-            + self._a54.dot(self._NL4)
+            self._EL.dot(u) + self._a51.dot(self._NL1) + self._a52.dot(self._NL2 + self._NL3) + self._a54.dot(self._NL4)
         )
         self._NL5 = self.nl_func(self._k)
         self._err = self._a54.dot(self._NL4 - self._NL5)
@@ -283,6 +279,7 @@ class ETD34(ETDAS):
     Configuration parameters for contour integration, adaptivity, and safety factors
     are inherited from the :class:`ETDAS` and :class:`StiffSolverAS` base classes.
     """
+
     _method: Union[_Etd34Diagonal, _Etd34Diagonalized, _Etd34NonDiagonal]
 
     def __init__(  # pylint: disable=too-many-arguments, too-many-positional-arguments

@@ -6,6 +6,7 @@ requires = [
     # Version 6.x is stable, but 7+ is recommended for modern systems.
     "setuptools-scm>=7.0.0",
 ]
+build-backend = "setuptools.build_meta"  # Add this - specifies the build backend
 
 [project]
 name = "rkstiff"
@@ -17,15 +18,19 @@ requires-python = ">=3.9"
 dynamic = ["version"]
 keywords = ["ETD", "Runge-Kutta", "Nonlinear PDEs"]
 dependencies = [
-    "numpy >=1.14.0",
-    "scipy >=1.3.2"
+    "numpy >=1.21.0",
+    "scipy >=1.7.0"
 ]
 classifiers=[
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Mathematics",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
@@ -41,26 +46,126 @@ local_scheme = "node-and-date"    # optional, controls local version identifiers
 [project.optional-dependencies]
 demo = [
     "matplotlib>=3.8.0",
-    "jupyter"
+    "jupyter>=1.0.0"
 ]
 dev = [
-    "flake8",
-    "mccabe",
-    "mypy",
-    "pylint",
-    "twine"
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mccabe>=0.7.0",
+    "mypy>=0.990",
+    "pylint>=2.15.0",
+    "twine>=4.0.0",
+    "pre-commit>=2.20.0",
 ]
-
 test = [
-    "coverage",
-    "pytest",
-    "tox"
+    "pytest>=7.0.0",
+    "pytest-cov>=3.0.0",
+    "pytest-xdist>=2.5.0",
+    "tox>=3.27.0",
+]
+# Create an 'all' extras for convenience
+all = [
+    "rkstiff[demo,dev,test]"
 ]
 
 [project.urls]
 homepage = "https://github.com/whalenpt/rkstiff"
 documentation = "https://github.com/whalenpt/rkstiff"
 repository = "https://github.com/whalenpt/rkstiff"
+"Bug Tracker" = "https://github.com/whalenpt/rkstiff/issues"
 
 [tool.black]
-line-length = 127
+line-length = 120
+target-version = ['py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.pytest.ini_options]
+# Fix: Change 'myproject' to 'rkstiff'
+addopts = [
+    "--cov=rkstiff",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    "--cov-report=xml",  # Useful for CI/CD
+    "--cov-fail-under=80",  # Set minimum coverage threshold
+    "-v",  # Verbose output
+    "-ra",  # Show summary of all test outcomes
+    "--strict-markers",  # Error on unknown markers
+    "--tb=short",  # Shorter traceback format
+]
+testpaths = ["tests"]  # Specify where tests are located
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+# Filter out common warnings if needed
+filterwarnings = [
+    "error",  # Turn warnings into errors
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["rkstiff"]  # Explicitly specify source
+branch = true  # Enable branch coverage
+parallel = false  # Disable parallel mode
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+    "*/.tox/*",
+    "rkstiff/__version__.py",  # Omit auto-generated version file
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "@abstract",
+    "@abc.abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Set to true when you add type hints
+ignore_missing_imports = true
+files = ["rkstiff"]
+
+[tool.pylint.main]
+max-line-length = 120
+disable = [
+    "C0103",  # Invalid name
+    "C0114",  # Missing module docstring
+    "R0913",  # Too many arguments
+]

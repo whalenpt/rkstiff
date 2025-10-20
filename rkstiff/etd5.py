@@ -31,7 +31,7 @@ class _Etd5Diagonal:  # pylint: disable=too-few-public-methods
         etd_config: ETDConfig = ETDConfig(),
     ) -> None:
         """Initialize ETD5 diagonal system strategy."""
-        self.lin_op = lin_op
+        self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
         n = lin_op.shape[0]
@@ -231,7 +231,7 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
         etd_config: ETDConfig,
     ) -> None:
         """Initialize ETD5 non-diagonal system strategy."""
-        self.lin_op = lin_op
+        self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
 
@@ -262,7 +262,7 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
         ]
         self._k = np.zeros(n, dtype=np.complex128)
 
-    def _update_coeffs(self, h: float) -> None:  # pylint: disable=too-many-locals,too-many-statements
+    def update_coeffs(self, h: float) -> None:  # pylint: disable=too-many-locals,too-many-statements
         """
         Update ETD5 coefficients for non-diagonal systems.
 
@@ -324,7 +324,7 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
         self._b5 = h * (-313 * phi1_1 + 883 * phi2_1 - 90 * phi3_1) / 1350
         self._b6 = h * (509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1) / 2700
 
-    def _n1_init(self, u: np.ndarray) -> None:
+    def n1_init(self, u: np.ndarray) -> None:
         """
         Initialize the first nonlinear evaluation.
 
@@ -338,7 +338,7 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
         """
         self._NL1 = self.nl_func(u)
 
-    def _update_stages(self, u: np.ndarray) -> np.ndarray:
+    def update_stages(self, u: np.ndarray) -> np.ndarray:
         """
         Advance solution by one time step using six-stage ETD5 scheme.
 
