@@ -147,7 +147,7 @@ python3 -m pip install '.[test]'
 when installing from the rkstiff source directory
 
 # License #
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+This project is licensed under the MIT License - see the [License](https://github.com/whalenpt/rkstiff/blob/develop/LICENSE) file for details.
 
 # Citation #
 
