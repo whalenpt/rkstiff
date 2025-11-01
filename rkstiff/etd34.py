@@ -38,12 +38,21 @@ class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
         self._err = np.zeros(n, dtype=np.complex128)
 
     def update_coeffs(self, h: float) -> None:
-        """Update internal ETD coefficients for step size h."""
+        """Update internal ETD coefficients for step size ``h``."""
         z = h * self.lin_op
         self._update_coeffs_diagonal(h, z)
 
     def _update_coeffs_diagonal(self, h: float, z: np.ndarray) -> None:
-        """Compute elementwise ETD coefficients for diagonal z = h*L."""
+        """
+        Compute elementwise ETD coefficients for diagonal systems.
+
+        Parameters
+        ----------
+        h : float
+            Step size.
+        z : np.ndarray
+            Elementwise scaled linear operator :math:`z = h L`.
+        """
         self._EL = np.exp(z)
         self._EL2 = np.exp(z / 2)
 
@@ -112,7 +121,9 @@ class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
 
 class _Etd34Diagonalized(_Etd34Diagonal):
     """
-    ETD34 non-diagonal system with eigenvector diagonalization strategy for ETD34 solver
+    ETD34 non-diagonal system with eigenvector diagonalization strategy.
+
+    Performs eigen-decomposition of :math:`L` and operates in the diagonal basis.
     """
 
     def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray], etd_config: ETDConfig):
@@ -138,7 +149,7 @@ class _Etd34Diagonalized(_Etd34Diagonal):
         self._update_coeffs_diagonal(h, z)
 
     def n1_init(self, u: np.ndarray) -> None:
-        """Initialize stored nonlinear evaluation and transformed state v = S^{-1} u."""
+        """Initialize stored nonlinear evaluation and transformed state :math:`v = S^{-1} u`."""
         self._NL1 = self._Sinv.dot(self.nl_func(u))
         self._v = self._Sinv.dot(u)
 
@@ -246,7 +257,7 @@ class _Etd34NonDiagonal:
 
 
 class ETD34(ETDAS):
-    """
+    r"""
     Fourth-order Exponential Time Differencing (ETD) integrator with adaptive stepping.
 
     This class implements the ETD(3,4) scheme, a fourth-order exponential integrator
@@ -255,24 +266,27 @@ class ETD34(ETDAS):
     and leverages the adaptive controller provided by the :class:`ETDAS` base class.
 
     The governing equation is assumed to be of the form:
-        dU/dt = L·U + N(U)
 
-    where `L` is a linear operator and `N(U)` is a nonlinear function.
+    .. math::
+
+        \frac{dU}{dt} = L U + N(U)
+
+    where :math:`L` is a linear operator and :math:`N(U)` is a nonlinear function.
 
     Attributes
     ----------
     lin_op : np.ndarray
-        Linear operator `L` in the system `dU/dt = L·U + N(U)`. Can be either:
+        Linear operator ``L`` in the system :math:`dU/dt = L U + N(U)`. Can be either:
         - A 2D matrix (for full linear operators)
         - A 1D array (for diagonal systems)
-        `L` may be real-valued or complex-valued.
+        ``L`` may be real-valued or complex-valued.
 
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function `N(U)` in the system `dU/dt = L·U + N(U)`.
+        Nonlinear function ``N(U)`` in the system :math:`dU/dt = L U + N(U)`.
         Can be real-valued or complex-valued.
 
     _method : Union[_Etd34Diagonal, _Etd34Diagonalized, _Etd34NonDiagonal]
-        Internal method implementation selected based on the form of `L`.
+        Internal method implementation selected based on the form of ``L``.
 
     Notes
     -----
@@ -297,12 +311,12 @@ class ETD34(ETDAS):
         Parameters
         ----------
         lin_op : np.ndarray
-            Linear operator `L` in the system `dU/dt = L·U + N(U)`. May be
+            Linear operator ``L`` in the system :math:`dU/dt = L U + N(U)`. May be
             either a 2D NumPy matrix or a 1D array representing a diagonal system.
             Supports both real and complex-valued operators.
 
         nl_func : Callable[[np.ndarray], np.ndarray]
-            Nonlinear function `N(U)` in the system `dU/dt = L·U + N(U)`.
+            Nonlinear function ``N(U)`` in the system :math:`dU/dt = L U + N(U)`.
 
         config : SolverConfig, optional
             General solver configuration controlling adaptivity thresholds,
@@ -313,15 +327,16 @@ class ETD34(ETDAS):
             settings and spectral radius estimation.
 
         diagonalize : bool, optional
-            If True, the solver diagonalizes the linear operator `L` before integration.
+            If True, the solver diagonalizes the linear operator ``L`` before integration.
             This can improve performance for certain non-diagonalizable but sparse systems.
 
         Notes
         -----
         The following parameters are inherited from parent classes:
-        - From :class:`ETDAS`: `modecutoff`, `contour_points`, `contour_radius`
-        - From :class:`StiffSolverAS`: `epsilon`, `incrF`, `decrF`, `safetyF`,
-          `adapt_cutoff`, and `minh`
+
+            - From :class:`ETDAS`: ``modecutoff``, ``contour_points``, ``contour_radius``
+            - From :class:`StiffSolverAS`: ``epsilon``, ``incrF``, ``decrF``, ``safetyF``,
+              ``adapt_cutoff``, and ``minh``
         """
         super().__init__(lin_op, nl_func, config=config, etd_config=etd_config, loglevel=loglevel)
         if self._diag:

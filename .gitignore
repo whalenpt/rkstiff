@@ -18,5 +18,7 @@ pyvenv*
 myenv
 .vscode
 coverage.xml
-docs/source/api
+docs/source/_autosummary
+
+
 

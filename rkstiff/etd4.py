@@ -42,7 +42,7 @@ class _Etd4Diagonal:  # pylint: disable=too-few-public-methods
         Update ETD4 coefficients based on step size h.
 
         Computes exponential and phi function coefficients for the diagonal system.
-        Small modes (|h*λ| < modecutoff) use contour integration to avoid numerical
+        Small modes (|`h*λ`| < modecutoff) use contour integration to avoid numerical
         instability, while large modes use direct evaluation.
 
         Parameters
@@ -268,72 +268,58 @@ class _Etd4NonDiagonal:  # pylint: disable=too-few-public-methods
 
 
 class ETD4(ETDCS):
-    """
+    r"""
     Fourth-order exponential time-differencing solver with constant step size.
 
     This class implements Krogstad's 4th-order ETD scheme for solving semi-linear
-    differential equations of the form dU/dt = L*U + NL(U), where L is a linear
-    operator and NL is a nonlinear function. The method uses contour integration
-    for computing matrix exponentials and phi functions.
+    differential equations of the form:
+
+    .. math::
+
+       \frac{dU}{dt} = L U + N(U)
+
+    where :math:`L` is a linear operator and :math:`N(U)` is a nonlinear function.
+
+    The method uses contour integration for computing matrix exponentials and
+    phi functions.
 
     The solver maintains internal state and automatically updates coefficients when
     the step size changes. It supports both diagonal and non-diagonal linear operators,
     automatically selecting the appropriate optimized implementation.
 
-    Parameters
-    ----------
-    lin_op : np.ndarray
-        Linear operator (L) in the system dU/dt = L*U + NL(U). Can be:
-        - 2D array: full matrix representation
-        - 1D array: diagonal system (more efficient)
-        Both real-valued and complex-valued operators are supported.
-    nl_func : callable
-        Nonlinear function NL(U) that maps np.ndarray -> np.ndarray.
-        Accepts the current state and returns the nonlinear contribution.
-        Can be real-valued or complex-valued.
-    etd_config : ETDConfig, default=ETDConfig()
-        Configuration object containing ETD scheme parameters:
-        - modecutoff (float): Threshold for small eigenvalue modes (default=0.01)
-        - contour_points (int): Number of contour integration points (default=32)
-        - contour_radius (float): Contour radius in complex plane (default=1.0)
-
     Attributes
     ----------
     lin_op : np.ndarray
-        Stored linear operator.
-    nl_func : callable
-        Stored nonlinear function.
-    etd_config : ETDConfig
-        Configuration parameters for the ETD scheme.
-    t : np.ndarray
-        Time values from the most recent call to evolve() method.
-    u : np.ndarray
-        Solution array from the most recent call to evolve() method.
+        Linear operator `L` in the system `dU/dt = L·U + N(U)`.
+        Can be either:
+        - A 2D matrix (for full linear operators)
+        - A 1D array (for diagonal systems)
+
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function `N(U)` in the system `dU/dt = L·U + N(U)`.
 
     Notes
     -----
-    - The solver automatically detects whether the linear operator is diagonal and
-      uses optimized routines accordingly (_Etd4Diagonal vs _Etd4NonDiagonal).
+    - Automatically detects whether the linear operator is diagonal and
+      uses optimized routines accordingly (``_Etd4Diagonal`` vs ``_Etd4NonDiagonal``).
     - Coefficients are cached and only recomputed when the step size changes.
-    - The first step initializes internal state for the multi-stage Runge-Kutta scheme.
-    - For diagonal systems, modes with |h*λ| < modecutoff use contour integration
-      to avoid numerical instability in phi function evaluation.
+    - The first step initializes internal state for the multi-stage Runge–Kutta scheme.
+    - For diagonal systems, modes with small :math:`|h \lambda| < \text{modecutoff}`
+      use contour integration to avoid numerical instability in phi function evaluation.
 
     References
     ----------
-    Krogstad, S. (2005). Generalized integrating factor methods for stiff PDEs.
-    Journal of Computational Physics, 203(1), 72-88.
+    Krogstad, S. (2005). *Generalized integrating factor methods for stiff PDEs.*
+    Journal of Computational Physics, 203(1), 72–88.
 
     Examples
     --------
     >>> import numpy as np
     >>> from rkstiff.etd import ETDConfig
-    >>> # Define a simple system: dU/dt = -U + U^2
     >>> linear_op = np.array([[-1.0]])
     >>> nl_func = lambda u: u**2
     >>> config = ETDConfig(modecutoff=0.01, contour_points=32, contour_radius=1.0)
     >>> solver = ETD4(linear_op, nl_func, config)
-    >>> # Solve from t=0 to t=1 with step size 0.01
     >>> u0 = np.array([0.5])
     >>> solver.evolve(u0, 0.0, 1.0, 0.01)
 
@@ -350,7 +336,7 @@ class ETD4(ETDCS):
         etd_config: ETDConfig = ETDConfig(),
         loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ) -> None:
-        """
+        r"""
         Initialize the ETD4 solver.
 
         Sets up the fourth-order exponential time-differencing solver by configuring
@@ -360,35 +346,29 @@ class ETD4(ETDCS):
         Parameters
         ----------
         lin_op : np.ndarray
-            Linear operator (L) in the system dU/dt = L*U + NL(U).
+            Linear operator (:math:`L`) in the system :math:`dU/dt = L\,U + N(U)`.
             - If 1D array: treated as diagonal operator (more efficient)
             - If 2D array: treated as full matrix operator
-            Supports both real and complex values.
         nl_func : callable
-            Nonlinear function NL(U) that maps np.ndarray -> np.ndarray.
+            Nonlinear function :math:`N(U)` that maps ``np.ndarray -> np.ndarray``.
             Takes the current state vector and returns the nonlinear contribution.
-            Must have signature: nl_func(u: np.ndarray) -> np.ndarray
-        etd_config : ETDConfig, default=ETDConfig()
+        etd_config : ETDConfig, optional
             Configuration object containing:
-            - modecutoff (float): Threshold for small eigenvalue modes.
-              Eigenvalues with |h*λ| < modecutoff use Taylor series expansions
-              instead of direct evaluation to avoid numerical instability in
-              phi functions (diagonal systems only).
-            - contour_points (int): Number of quadrature points for contour
-              integration when computing matrix exponentials and phi functions.
-              More points increase accuracy but also computational cost.
-            - contour_radius (float): Radius of the circular contour in the
-              complex plane used for computing matrix functions via Cauchy
-              integral formula. Should be chosen to properly enclose the
-              spectrum of h*L where h is the time step.
+              - ``modecutoff`` (float): Threshold for small eigenvalue modes.
+              - ``contour_points`` (int): Number of quadrature points for contour
+                integration when computing matrix exponentials and phi functions.
+              - ``contour_radius`` (float): Radius of the circular contour in the
+                complex plane used for computing matrix functions.
+        loglevel : str or int, optional
+            Logging verbosity level. Defaults to "WARNING".
 
         Notes
         -----
-        - The solver automatically detects if lin_op is 1D (diagonal) and selects
-          the optimized _Etd4Diagonal method; otherwise uses _Etd4NonDiagonal.
+        - Automatically detects if ``lin_op`` is 1D (diagonal) and selects
+          the optimized ``_Etd4Diagonal`` method; otherwise uses ``_Etd4NonDiagonal``.
         - Internal state variables are initialized but coefficients are not computed
           until the first time step is taken.
-        - The parent class ETDCS handles common setup and validation.
+        - The parent class ``ETDCS`` handles common setup and validation.
         """
         super().__init__(lin_op, nl_func, etd_config=etd_config, loglevel=loglevel)
         self._method = Union[_Etd4Diagonal, _Etd4NonDiagonal]

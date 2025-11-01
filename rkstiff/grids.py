@@ -178,11 +178,11 @@ def construct_x_cheb(n: int, a: float = -1.0, b: float = 1.0) -> np.ndarray:
 
 
 def construct_x_dx_cheb(n: int, a: float = -1, b: float = 1) -> Tuple[np.ndarray, np.ndarray]:
-    """Construct Chebyshev-Gauss-Lobatto grid and differentiation matrix.
-    
+    r"""Construct Chebyshev–Gauss–Lobatto grid and differentiation matrix.
+
     Creates both the Chebyshev grid points and the associated spectral
     differentiation matrix for computing derivatives.
-    
+
     Parameters
     ----------
     n : int
@@ -192,39 +192,39 @@ def construct_x_dx_cheb(n: int, a: float = -1, b: float = 1) -> Tuple[np.ndarray
         Left endpoint of the interval. Default is -1.
     b : float, optional
         Right endpoint of the interval. Default is 1.
-    
+
     Returns
     -------
     x : np.ndarray, shape (n+1,)
-        Chebyshev-Gauss-Lobatto grid points mapped to [a, b].
+        Chebyshev–Gauss–Lobatto grid points mapped to [a, b].
     d_cheb_matrix : np.ndarray, shape (n+1, n+1)
         Differentiation matrix such that ``d_cheb_matrix @ f`` approximates
         df/dx for a function f sampled on the grid x.
-    
+
     Notes
     -----
     The matrix is constructed using the barycentric interpolation
-    formula [1]_. It has the following properties:
-    
+    formula [Trefethen2000]_. It has the following properties:
+
     - Rows sum to zero (consistent with differentiation of constants)
     - Provides spectral accuracy for smooth functions
     - Eigenvalues lie within the unit circle for stability
-    
+
     The differentiation matrix is given by:
-    
+
     .. math::
         D_{ij} = \\begin{cases}
-        \\frac{c_i}{c_j} \\frac{1}{x_i - x_j} & i \\neq j \\\\
-        -\\sum_{k \\neq i} D_{ik} & i = j
+        \\dfrac{c_i}{c_j (x_i - x_j)}, & i \\neq j \\\\
+        -\\sum_{k \\neq i} D_{ik}, & i = j
         \\end{cases}
-    
+
     where :math:`c_i` are barycentric weights.
-    
+
     References
     ----------
-    .. [1] Trefethen, Lloyd N. "Spectral methods in MATLAB." Society for
-           industrial and applied mathematics, 2000.
-    
+    .. [Trefethen2000] Trefethen, Lloyd N. *Spectral Methods in MATLAB*.
+       Society for Industrial and Applied Mathematics, 2000.
+
     Examples
     --------
     >>> x, D = construct_x_dx_cheb(10, a=-1, b=1)
@@ -244,7 +244,7 @@ def construct_x_dx_cheb(n: int, a: float = -1, b: float = 1) -> Tuple[np.ndarray
 
 
 def construct_r_kr_hankel(nr: int, rmax: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
-    """Construct Hankel transform radial and spectral grids.
+    r"""Construct Hankel transform radial and spectral grids.
     
     Creates optimal grids for discrete Hankel transforms based on zeros
     of the Bessel function :math:`J_0`.
@@ -298,67 +298,21 @@ def construct_r_kr_hankel(nr: int, rmax: float) -> Tuple[np.ndarray, np.ndarray,
 
 
 class HankelTransform:
-    """Discrete Hankel Transform for axially symmetric functions.
-    
+    r"""
+    Discrete Hankel Transform for axially symmetric functions.
+
     Implements the discrete Hankel transform (DHT) and its inverse for
     functions with cylindrical symmetry. The transform is based on the
     quasi-discrete Hankel transform using zeros of Bessel functions.
-    
-    Parameters
-    ----------
-    nr : int
-        Number of radial points sampled. The size of the Hankel transform
-        matrix is nr x nr. Must be at least 4.
-    rmax : float, optional
-        Maximum radius of sampled points. Must be positive. Default is 1.0.
-    
-    Attributes
-    ----------
-    r : np.ndarray
-        Radial points for the spectral grid suitable for the Hankel transform.
-    kr : np.ndarray
-        Spectral points in wavenumber space.
-    nr : int
-        Number of radial points.
-    rmax : float
-        Maximum radius of the radial grid.
-    
-    Methods
-    -------
-    ht(f)
-        Compute forward Hankel transform.
-    iht(g)
-        Compute inverse Hankel transform.
-    hankel_matrix()
-        Return the Hankel transform matrix.
-    bessel_zeros()
-        Return the Bessel function zeros used.
-    
-    Notes
-    -----
-    The Hankel transform pair is defined as:
-    
+
+    The transform pair is defined as:
+
     .. math::
-        G(k) &= \\int_0^\\infty f(r) J_0(kr) r \\, dr \\\\
-        f(r) &= \\int_0^\\infty G(k) J_0(kr) k \\, dk
-    
+
+        G(k) &= \int_0^\infty f(r) J_0(kr) r \, dr \\
+        f(r) &= \int_0^\infty G(k) J_0(kr) k \, dk
+
     where :math:`J_0` is the Bessel function of the first kind of order 0.
-    
-    References
-    ----------
-    .. [1] Guizar-Sicairos, M., & Gutierrez-Vega, J. C. (2004). Computation of
-           quasi-discrete Hankel transforms of integer order for propagating
-           optical wave fields. JOSA A, 21(1), 53-58.
-    
-    Examples
-    --------
-    >>> ht = HankelTransform(nr=64, rmax=10.0)
-    >>> r = ht.r
-    >>> f = np.exp(-r**2)  # Gaussian in real space
-    >>> F = ht.ht(f)  # Transform to spectral space
-    >>> f_reconstructed = ht.iht(F)  # Transform back
-    >>> np.allclose(f, f_reconstructed)
-    True
     """
 
     def __init__(self, nr: int, rmax: float = 1.0):
@@ -399,7 +353,7 @@ class HankelTransform:
 
     def hankel_matrix(self) -> np.ndarray:
         """Return a copy of the Hankel transform matrix.
-        
+
         Returns
         -------
         np.ndarray, shape (nr, nr)

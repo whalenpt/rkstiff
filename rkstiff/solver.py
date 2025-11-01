@@ -49,7 +49,10 @@ class SolverConfig:
     # ---- epsilon ----
     @property
     def epsilon(self) -> float:
-        """Relative error tolerance for adaptive stepping."""
+        """Relative error tolerance for adaptive stepping.
+
+        :no-index:
+        """
         return self._epsilon
 
     @epsilon.setter
@@ -62,7 +65,10 @@ class SolverConfig:
     # ---- incr_f ----
     @property
     def incr_f(self) -> float:
-        """Increment factor for adaptive step sizing."""
+        """Increment factor for adaptive step sizing.
+
+        :no-index:
+        """
         return self._incr_f
 
     @incr_f.setter
@@ -75,7 +81,10 @@ class SolverConfig:
     # ---- decr_f ----
     @property
     def decr_f(self) -> float:
-        """Decrement factor for adaptive step sizing."""
+        """Decrement factor for adaptive step sizing.
+
+        :no-index:
+        """
         return self._decr_f
 
     @decr_f.setter
@@ -88,7 +97,10 @@ class SolverConfig:
     # ---- safety_f ----
     @property
     def safety_f(self) -> float:
-        """Safety factor for adaptive stepping."""
+        """Safety factor for adaptive stepping.
+
+        :no-index:
+        """
         return self._safety_f
 
     @safety_f.setter
@@ -101,7 +113,10 @@ class SolverConfig:
     # ---- adapt_cutoff ----
     @property
     def adapt_cutoff(self) -> float:
-        """Cutoff threshold for adaptive step size computation."""
+        """Cutoff threshold for adaptive step size computation.
+
+        :no-index:
+        """
         return self._adapt_cutoff
 
     @adapt_cutoff.setter
@@ -114,7 +129,10 @@ class SolverConfig:
     # ---- minh ----
     @property
     def minh(self) -> float:
-        """Minimum allowable step size."""
+        """Minimum allowable step size.
+
+        :no-index:
+        """
         return self._minh
 
     @minh.setter

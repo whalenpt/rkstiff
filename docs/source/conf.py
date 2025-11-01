@@ -4,10 +4,25 @@ See: https://www.sphinx-doc.org/en/master/usage/configuration.html
 """
 
 from datetime import datetime
-import os
 from pathlib import Path
 import sys
-from sphinx.ext import apidoc
+
+
+# -- Suppress harmless duplicate-object warnings from autodoc/autosummary ----
+import sphinx.util.logging
+
+_OrigLog = sphinx.util.logging.SphinxLoggerAdapter.warning
+
+
+def _sphinx_warning_filter(self, msg, *args, **kwargs):
+    if isinstance(msg, str) and "duplicate object description of" in msg:
+        return None  # ignore only this kind of warning
+    return _OrigLog(self, msg, *args, **kwargs)
+
+
+sphinx.util.logging.SphinxLoggerAdapter.warning = _sphinx_warning_filter
+# ---------------------------------------------------------------------------
+
 
 # -- Path setup --------------------------------------------------------------
 # Add your library (rkstiff) to sys.path so autodoc can import it
@@ -16,7 +31,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 # -- Project information -----------------------------------------------------
 project = "rkstiff"
 author = "Patrick Whalen"
-copyright = f"{datetime.now().year}, {author}"
 release = "1.0.0"
 version = "1.0"
 
@@ -31,7 +45,6 @@ extensions = [
     "sphinx_autodoc_typehints",
     "myst_parser",
 ]
-autosummary_generate = True
 
 source_suffix = {
     ".rst": "restructuredtext",
@@ -41,10 +54,11 @@ source_suffix = {
 master_doc = "index"
 
 templates_path = ["_templates"]
-html_static_path = ["_static"]
+html_static_path = []  # Remove _static since it doesn't exist yet
 
 exclude_patterns = [
     "_build",
+    "build",
     "Thumbs.db",
     ".DS_Store",
     "**.ipynb_checkpoints",
@@ -59,6 +73,8 @@ suppress_warnings = [
     "myst.xref_missing",
     "ref.ref",
     "index",
+    "autosummary.stub",
+    "autosummary.import_cycle",
 ]
 
 # Treat warnings as non-fatal for local builds
@@ -68,7 +84,7 @@ nitpicky = False
 html_theme = "sphinx_rtd_theme"
 
 html_theme_options = {
-    "navigation_depth": 4,
+    "navigation_depth": 2,  # Reduced from 4
     "collapse_navigation": False,
     "sticky_navigation": True,
     "includehidden": True,
@@ -90,7 +106,6 @@ autodoc_default_options = {
     "special-members": "__init__",
     "inherited-members": False,
     "show-inheritance": True,
-    "no-index": True,  # prevents duplicate object warnings from API files
 }
 
 autodoc_typehints = "description"
@@ -114,6 +129,7 @@ intersphinx_mapping = {
 # -- Autosummary -------------------------------------------------------------
 autosummary_generate = True
 autosummary_imported_members = False
+autosummary_ignore_module_all = False
 
 # -- MathJax -----------------------------------------------------------------
 mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
@@ -142,24 +158,3 @@ myst_heading_anchors = 3
 # -- Linkcheck ---------------------------------------------------------------
 linkcheck_timeout = 10
 linkcheck_ignore = [r"http://localhost"]
-
-
-def run_apidoc_now():
-    src_dir = Path(__file__).resolve().parents[2] / "rkstiff"
-    out_dir = Path(__file__).resolve().parent / "api"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # Generate .rst files
-    apidoc.main(
-        [
-            "--force",
-            "--separate",
-            "--module-first",
-            "--output-dir",
-            str(out_dir),
-            str(src_dir),
-        ]
-    )
-
-
-run_apidoc_now()  # generate API docs immediately

@@ -8,7 +8,7 @@ import numpy as np
 
 
 def dx_rfft(kx: np.ndarray, u: np.ndarray, n: int = 1) -> np.ndarray:
-    """Compute the nth derivative of a real-valued array in spectral space.
+    r"""Compute the nth derivative of a real-valued array in spectral space.
 
     Uses the real FFT (rfft) to efficiently compute derivatives of real-valued
     functions. The derivative is computed by multiplying the Fourier coefficients
@@ -94,7 +94,7 @@ def dx_rfft(kx: np.ndarray, u: np.ndarray, n: int = 1) -> np.ndarray:
 
 
 def dx_fft(kx: np.ndarray, u: np.ndarray, n: int = 1) -> np.ndarray:
-    """Compute the nth derivative of a complex-valued array in spectral space.
+    r"""Compute the nth derivative of a complex-valued array in spectral space.
 
     Uses the complex FFT (fft) to compute derivatives of complex-valued
     functions. The derivative is computed by multiplying the Fourier coefficients
@@ -167,7 +167,7 @@ def dx_fft(kx: np.ndarray, u: np.ndarray, n: int = 1) -> np.ndarray:
 
 
 def dx_cheb(d_cheb_matrix: np.ndarray, u: np.ndarray, n: int = 1) -> np.ndarray:
-    """Compute the nth derivative using Chebyshev spectral differentiation.
+    r"""Compute the nth derivative using Chebyshev spectral differentiation.
 
     Uses the Chebyshev differentiation matrix to compute derivatives of
     functions sampled at Chebyshev-Gauss-Lobatto points. Provides spectral

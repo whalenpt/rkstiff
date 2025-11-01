@@ -62,7 +62,7 @@ class _Etd5Diagonal:  # pylint: disable=too-few-public-methods
         Update ETD5 coefficients based on step size h.
 
         Computes exponential and phi function coefficients for the diagonal system.
-        Small modes (|h*λ| < modecutoff) use contour integration to avoid numerical
+        Small modes (|`h*λ`| < modecutoff) use contour integration to avoid numerical
         instability, while large modes use direct evaluation.
 
         Parameters
@@ -430,34 +430,41 @@ class ETD5(ETDCS):
         ----------
         lin_op : np.ndarray
             Linear operator (L) in the system dU/dt = L*U + NL(U).
-            - If 1D array: treated as diagonal operator (more efficient)
-            - If 2D array: treated as full matrix operator
+
+            - If 1D array: treated as a diagonal operator (more efficient).
+            - If 2D array: treated as a full matrix operator.
+
             Supports both real and complex values.
+
         nl_func : callable
-            Nonlinear function nl_func(U) that maps np.ndarray -> np.ndarray.
+            Nonlinear function ``nl_func(U)`` that maps ``np.ndarray -> np.ndarray``.
             Takes the current state vector and returns the nonlinear contribution.
-            Must have signature: nl_func(u: np.ndarray) -> np.ndarray
+            Must have signature ``nl_func(u: np.ndarray) -> np.ndarray``.
+
         etd_config : ETDConfig, default=ETDConfig()
             Configuration object containing:
-            - modecutoff (float): Threshold for small eigenvalue modes.
-              Eigenvalues with |h*λ| < modecutoff use Taylor series expansions
+
+            - **modecutoff** (float): Threshold for small eigenvalue modes.
+              Eigenvalues with ``|h*λ| < modecutoff`` use Taylor series expansions
               instead of direct evaluation to avoid numerical instability in
               phi functions (diagonal systems only).
-            - contour_points (int): Number of quadrature points for contour
+
+            - **contour_points** (int): Number of quadrature points for contour
               integration when computing matrix exponentials and phi functions.
               More points increase accuracy but also computational cost.
-            - contour_radius (float): Radius of the circular contour in the
-              complex plane used for computing matrix functions via Cauchy
+
+            - **contour_radius** (float): Radius of the circular contour in the
+              complex plane used for computing matrix functions via the Cauchy
               integral formula. Should be chosen to properly enclose the
-              spectrum of h*L where h is the time step.
+              spectrum of ``h*L`` where ``h`` is the time step.
 
         Notes
         -----
-        - The solver automatically detects if lin_op is 1D (diagonal) and selects
-          the optimized _Etd5Diagonal method; otherwise uses _Etd5NonDiagonal.
+        - The solver automatically detects if ``lin_op`` is 1D (diagonal) and selects
+          the optimized ``_Etd5Diagonal`` method; otherwise uses ``_Etd5NonDiagonal``.
         - Internal state variables are initialized but coefficients are not computed
           until the first time step is taken.
-        - The parent class ETDCS handles common setup and validation.
+        - The parent class ``ETDCS`` handles common setup and validation.
         """
         super().__init__(lin_op, nl_func, etd_config, loglevel)
         if self._diag:
