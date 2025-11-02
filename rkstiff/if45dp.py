@@ -21,6 +21,8 @@ class IF45DP(StiffSolverAS):
         Nonlinear function nl_func(U).
     config : SolverConfig, optional
         Solver configuration for adaptive stepping parameters.
+    loglevel : str or int, optional
+        Logging level.
 
     Attributes
     ----------
@@ -49,6 +51,20 @@ class IF45DP(StiffSolverAS):
         config: SolverConfig = SolverConfig(),
         loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ) -> None:
+        """
+        Initialize the IF45DP adaptive solver.
+
+        Parameters
+        ----------
+        lin_op : np.ndarray
+            Diagonal linear operator (1D array).
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function.
+        config : SolverConfig, optional
+            Solver configuration.
+        loglevel : str or int, optional
+            Logging level.
+        """
         super().__init__(lin_op, nl_func, config=config, loglevel=loglevel)
         if len(lin_op.shape) > 1:
             raise ValueError("IF45DP only handles 1D linear operators (diagonal systems): try IF34,ETD34, or ETD35")
@@ -87,25 +103,27 @@ class IF45DP(StiffSolverAS):
         self.__n1_init = False
 
     def _reset(self) -> None:
-        """Reset solver to its initial state."""
+        """
+        Reset solver to its initial state.
+        """
         self._h_coeff = None
         self.__n1_init = False
 
     def _update_stages(self, u: np.ndarray, h: float) -> tuple[np.ndarray, np.ndarray]:
         """
-        Compute u_{n+1} from u_n using the 7-stage Dormand-Prince scheme.
+        Compute next state and error estimate using the 7-stage Dormand-Prince scheme.
 
         Parameters
         ----------
         u : np.ndarray
-            Current solution vector u_n.
+            Current solution vector.
         h : float
             Time step size.
 
         Returns
         -------
         tuple[np.ndarray, np.ndarray]
-            Updated solution vector u_{n+1} and error estimate.
+            Updated solution vector and error estimate.
 
         Notes
         -----

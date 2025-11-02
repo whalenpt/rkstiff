@@ -3,7 +3,6 @@
 See: https://www.sphinx-doc.org/en/master/usage/configuration.html
 """
 
-from datetime import datetime
 from pathlib import Path
 import sys
 
@@ -104,7 +103,7 @@ autodoc_default_options = {
     "undoc-members": True,
     "private-members": False,
     "special-members": "__init__",
-    "inherited-members": False,
+    "inherited-members": True,
     "show-inheritance": True,
 }
 
@@ -133,11 +132,15 @@ autosummary_ignore_module_all = False
 
 # -- MathJax -----------------------------------------------------------------
 mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+# Allow line breaks in equations and keep them centered
 mathjax3_config = {
     "tex": {
         "inlineMath": [["$", "$"], ["\\(", "\\)"]],
         "displayMath": [["$$", "$$"], ["\\[", "\\]"]],
-    }
+        "processEscapes": True,
+        "tags": "ams",
+    },
+    "chtml": {"scale": 1.0},
 }
 
 # -- MyST Markdown -----------------------------------------------------------

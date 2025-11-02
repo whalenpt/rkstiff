@@ -1,5 +1,8 @@
 """
-util/loghelper.py - Logging helper utilities for rkstiff solvers
+Logging helper utilities for rkstiff solvers.
+
+Provides functions for parsing log levels, setting up loggers, and configuring logging for solver classes.
+All functions use NumPy docstring style and are compatible with Sphinx autodoc.
 """
 
 import logging
@@ -8,21 +11,21 @@ import logging
 def _parse_loglevel(loglevel):
     """
     Convert loglevel input to logging integer constant.
-    
+
     Parameters
     ----------
     loglevel : str or int
-        Logging level as string or integer constant
-    
+        Logging level as string (e.g., 'INFO') or integer constant.
+
     Returns
     -------
     int
-        Numeric logging level
-    
+        Numeric logging level.
+
     Raises
     ------
     ValueError
-        If loglevel string is invalid
+        If loglevel string is invalid.
     """
     if isinstance(loglevel, str):
         numeric_level = getattr(logging, loglevel.upper(), None)
@@ -35,16 +38,16 @@ def _parse_loglevel(loglevel):
 def _get_level_name(level):
     """
     Get the string name for a logging level.
-    
+
     Parameters
     ----------
     level : int
-        Numeric logging level
-    
+        Numeric logging level.
+
     Returns
     -------
     str
-        Level name (e.g., 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+        Level name (e.g., 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL').
     """
     level_names = {
         logging.DEBUG: 'DEBUG',
@@ -59,11 +62,11 @@ def _get_level_name(level):
 def setup_logger(name, loglevel='WARNING'):
     """
     Set up a logger with the specified name and level.
-    
+
     Parameters
     ----------
     name : str
-        Name for the logger (typically __name__ or class name)
+        Name for the logger (typically __name__ or class name).
     loglevel : str or int, optional
         Logging level. Can be:
         - String: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
@@ -73,7 +76,7 @@ def setup_logger(name, loglevel='WARNING'):
     Returns
     -------
     logger : logging.Logger
-        Configured logger instance
+        Configured logger instance.
     """
     logger = logging.getLogger(name)
     
@@ -97,18 +100,18 @@ def setup_logger(name, loglevel='WARNING'):
 def set_log_level(logger, loglevel):
     """
     Set the logging level for an existing logger.
-    
+
     Parameters
     ----------
     logger : logging.Logger
-        Logger instance to configure
+        Logger instance to configure.
     loglevel : str or int
-        Logging level as string or integer constant
-    
+        Logging level as string or integer constant.
+
     Raises
     ------
     ValueError
-        If loglevel string is invalid
+        If loglevel string is invalid.
     """
     numeric_level = _parse_loglevel(loglevel)
     logger.setLevel(numeric_level)
@@ -117,18 +120,18 @@ def set_log_level(logger, loglevel):
 def get_solver_logger(solver_class, loglevel='WARNING'):
     """
     Create a logger for a solver instance.
-    
+
     Parameters
     ----------
-    solver_class : class
-        The solver class (e.g., ETD35, IF34)
+    solver_class : type
+        The solver class (e.g., ETD35, IF34).
     loglevel : str or int, optional
-        Initial logging level
-    
+        Initial logging level.
+
     Returns
     -------
     logger : logging.Logger
-        Configured logger for the solver
+        Configured logger for the solver.
     """
     logger_name = 'rkstiff.%s' % solver_class.__name__
     return setup_logger(logger_name, loglevel)

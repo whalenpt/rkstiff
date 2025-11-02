@@ -1,4 +1,5 @@
-"""grids.py
+"""
+grids.py
 
 Grid construction utilities for spectral methods.
 
@@ -13,11 +14,9 @@ import scipy.special as sp  # type: ignore
 
 
 def construct_x_kx_rfft(n: int, a: float = 0.0, b: float = 2 * np.pi) -> Tuple[np.ndarray, np.ndarray]:
-    """Construct uniform 1D spatial grid and rfft spectral wavenumbers.
-    
-    Creates a uniform spatial grid and corresponding wavenumber grid for
-    real-valued functions using the real FFT (rfft) convention.
-    
+    """
+    Construct uniform 1D spatial grid and rfft spectral wavenumbers.
+
     Parameters
     ----------
     n : int
@@ -25,15 +24,15 @@ def construct_x_kx_rfft(n: int, a: float = 0.0, b: float = 2 * np.pi) -> Tuple[n
     a : float, optional
         Left endpoint of spatial grid. Default is 0.0.
     b : float, optional
-        Right endpoint of spatial grid. Default is :math:`2\\pi`.
-    
+        Right endpoint of spatial grid. Default is 2*pi.
+
     Returns
     -------
     x : np.ndarray
         Uniform 1D spatial grid with n points in the interval [a, b).
     kx : np.ndarray
         Spectral wavenumber grid with n//2 + 1 points for rfft.
-    
+
     Raises
     ------
     TypeError
@@ -68,11 +67,9 @@ def construct_x_kx_rfft(n: int, a: float = 0.0, b: float = 2 * np.pi) -> Tuple[n
 
 
 def construct_x_kx_fft(n: int, a: float = 0.0, b: float = 2 * np.pi) -> Tuple[np.ndarray, np.ndarray]:
-    """Construct uniform 1D spatial grid and fft spectral wavenumbers.
-    
-    Creates a uniform spatial grid and corresponding wavenumber grid for
-    complex-valued functions using the complex FFT (fft) convention.
-    
+    """
+    Construct uniform 1D spatial grid and fft spectral wavenumbers.
+
     Parameters
     ----------
     n : int
@@ -80,15 +77,15 @@ def construct_x_kx_fft(n: int, a: float = 0.0, b: float = 2 * np.pi) -> Tuple[np
     a : float, optional
         Left endpoint of spatial grid. Default is 0.0.
     b : float, optional
-        Right endpoint of spatial grid. Default is :math:`2\\pi`.
-    
+        Right endpoint of spatial grid. Default is 2*pi.
+
     Returns
     -------
     x : np.ndarray
         Uniform 1D spatial grid with n points in the interval [a, b).
     kx : np.ndarray
         Spectral wavenumber grid with n points for fft.
-    
+
     Raises
     ------
     TypeError
@@ -123,27 +120,23 @@ def construct_x_kx_fft(n: int, a: float = 0.0, b: float = 2 * np.pi) -> Tuple[np
 
 
 def construct_x_cheb(n: int, a: float = -1.0, b: float = 1.0) -> np.ndarray:
-    """Construct 1D grid with Chebyshev spatial discretization.
-    
-    Creates a grid using Chebyshev-Gauss-Lobatto points (also known as
-    Chebyshev extreme points), which are optimal for spectral methods
-    and polynomial interpolation.
-    
+    """
+    Construct 1D grid with Chebyshev spatial discretization.
+
     Parameters
     ----------
     n : int
-        Maximum Chebyshev grid point index. The grid will contain n+1 points.
-        Must be at least 2.
+        Maximum Chebyshev grid point index. The grid will contain n+1 points. Must be at least 2.
     a : float, optional
         Left endpoint of spatial grid. Default is -1.0.
     b : float, optional
         Right endpoint of spatial grid. Default is 1.0.
-    
+
     Returns
     -------
     np.ndarray
         Grid of n+1 points discretized at Chebyshev points in the interval [a, b].
-    
+
     Raises
     ------
     TypeError
@@ -178,16 +171,13 @@ def construct_x_cheb(n: int, a: float = -1.0, b: float = 1.0) -> np.ndarray:
 
 
 def construct_x_dx_cheb(n: int, a: float = -1, b: float = 1) -> Tuple[np.ndarray, np.ndarray]:
-    r"""Construct Chebyshev–Gauss–Lobatto grid and differentiation matrix.
-
-    Creates both the Chebyshev grid points and the associated spectral
-    differentiation matrix for computing derivatives.
+    """
+    Construct Chebyshev–Gauss–Lobatto grid and differentiation matrix.
 
     Parameters
     ----------
     n : int
-        Number of subintervals. The grid will contain n+1 Chebyshev points.
-        Must be at least 2.
+        Number of subintervals. The grid will contain n+1 Chebyshev points. Must be at least 2.
     a : float, optional
         Left endpoint of the interval. Default is -1.
     b : float, optional
@@ -195,7 +185,7 @@ def construct_x_dx_cheb(n: int, a: float = -1, b: float = 1) -> Tuple[np.ndarray
 
     Returns
     -------
-    x : np.ndarray, shape (n+1,)
+    x : np.ndarray
         Chebyshev–Gauss–Lobatto grid points mapped to [a, b].
     d_cheb_matrix : np.ndarray, shape (n+1, n+1)
         Differentiation matrix such that ``d_cheb_matrix @ f`` approximates
@@ -244,18 +234,16 @@ def construct_x_dx_cheb(n: int, a: float = -1, b: float = 1) -> Tuple[np.ndarray
 
 
 def construct_r_kr_hankel(nr: int, rmax: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
-    r"""Construct Hankel transform radial and spectral grids.
-    
-    Creates optimal grids for discrete Hankel transforms based on zeros
-    of the Bessel function :math:`J_0`.
-    
+    """
+    Construct Hankel transform radial and spectral grids.
+
     Parameters
     ----------
     nr : int
         Number of radial points. Must be at least 1.
     rmax : float
         Maximum radius of the radial grid. Must be positive.
-    
+
     Returns
     -------
     r : np.ndarray
@@ -263,27 +251,9 @@ def construct_r_kr_hankel(nr: int, rmax: float) -> Tuple[np.ndarray, np.ndarray,
     kr : np.ndarray
         Spectral grid points in wavenumber space.
     bessel_zeros : np.ndarray
-        First nr zeros of the Bessel function :math:`J_0`.
+        First nr zeros of the Bessel function J_0.
     jN : float
-        The (nr+1)-th zero of :math:`J_0`, used for normalization.
-    
-    Notes
-    -----
-    The grids are constructed using zeros of :math:`J_0(x)` as:
-    
-    .. math::
-        r_j &= \\frac{\\alpha_j r_{\\text{max}}}{\\alpha_{n+1}} \\\\
-        k_j &= \\frac{\\alpha_j}{r_{\\text{max}}}
-    
-    where :math:`\\alpha_j` are the zeros of :math:`J_0`.
-    
-    Examples
-    --------
-    >>> r, kr, zeros, jN = construct_r_kr_hankel(10, rmax=5.0)
-    >>> len(r), len(kr)
-    (10, 10)
-    >>> r[-1] < 5.0  # Last point is less than rmax
-    True
+        The (nr+1)-th zero of J_0, used for normalization.
     """
     # set the r and kr radial grids given a maximum radius rmax
     if nr < 4:
@@ -476,18 +446,15 @@ def mirror_grid(
     u: Optional[np.ndarray] = None, 
     axis: int = -1
 ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
-    """Mirror a radial grid to create a symmetric interval.
-    
-    Converts a radial grid from [0, rmax] to [-rmax, rmax] by mirroring
-    the points and (optionally) the corresponding function values.
-    
+    """
+    Mirror a radial grid to create a symmetric interval.
+
     Parameters
     ----------
     r : np.ndarray
         Radial grid on interval [0, rmax].
     u : np.ndarray, optional
-        Function values at radial points r. If None, only the mirrored
-        grid is returned.
+        Function values at radial points r. If None, only the mirrored grid is returned.
     axis : int, optional
         Axis along which to mirror the u array. Default is -1.
         
@@ -501,7 +468,7 @@ def mirror_grid(
         Mirrored 'radial' grid on interval [-rmax, rmax].
     unew : np.ndarray, optional
         Function values at mirrored grid points. Only returned if u is provided.
-    
+
     Raises
     ------
     ValueError

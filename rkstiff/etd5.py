@@ -1,4 +1,18 @@
-"""rkstiff.etd5: Exponential time-differencing constant step solver of 5th order."""
+r"""
+rkstiff.etd5
+=============
+
+Implements the **fifth-order Exponential Time-Differencing (ETD5)** integrator
+for stiff ODE systems of the form
+
+.. math::
+
+    \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}).
+
+This solver uses a constant time step and supports both diagonal and
+full matrix linear operators, combining analytic exponentials with
+Runge–Kutta-style stage updates.
+"""
 
 from typing import Callable, Union, Literal
 import numpy as np
@@ -7,23 +21,71 @@ from rkstiff.etd import ETDCS, ETDConfig, phi1, phi2, phi3
 
 
 class _Etd5Diagonal:  # pylint: disable=too-few-public-methods
-    """
-    ETD5 diagonal system strategy for ETD5 solver.
+    r"""
+    ETD5 diagonal system strategy for the ETD5 solver.
 
-    Optimized implementation for diagonal linear operators that avoids
-    matrix operations by using element-wise operations on vectors.
+    Implements the fifth-order Exponential Time-Differencing (ETD5) scheme
+    for **diagonal** linear operators :math:`\mathbf{L}`, where each mode evolves
+    independently.
+
+    Given a system of the form
+
+    .. math::
+
+        \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}),
+
+    this implementation exploits the diagonal structure of :math:`\mathbf{L}` to
+    avoid matrix operations, performing all updates via elementwise vector arithmetic.
 
     Parameters
     ----------
     lin_op : np.ndarray
-        1D array representing the diagonal linear operator.
-    nl_func : callable
-        Nonlinear function nl_func(U) that maps np.ndarray -> np.ndarray.
+        1D array of diagonal entries of :math:`\mathbf{L}`.
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
     etd_config : ETDConfig
-        Configuration object containing modecutoff, contour_points,
-        and contour_radius parameters.
-    """
+        Configuration object defining:
 
+        - ``modecutoff`` – threshold distinguishing small from large modes.
+        - ``contour_points`` – number of quadrature nodes for contour integration.
+        - ``contour_radius`` – contour radius in the complex plane.
+
+    Notes
+    -----
+    The ETD5 scheme advances the solution using six intermediate stages:
+
+    .. math::
+
+        \mathbf{U}_{n+1}
+        = e^{h\mathbf{L}} \mathbf{U}_n
+        + \sum_{i=1}^{6} b_i\,\mathbf{N}(\mathbf{k}_i),
+
+    where the stage vectors :math:`\mathbf{k}_i` satisfy
+
+    .. math::
+
+        \mathbf{k}_i
+        = e^{c_i h\mathbf{L}} \mathbf{U}_n
+        + h \sum_{j<i} a_{ij}\,\mathbf{N}(\mathbf{k}_j).
+
+    The coefficients :math:`a_{ij}` and :math:`b_i` are derived from the **phi-functions**:
+
+    .. math::
+
+        \phi_k(z)
+        = \frac{1}{(k-1)!}
+        \int_0^1 e^{(1-\theta)z}\theta^{k-1}\,d\theta,
+        \quad k=1,2,3.
+
+    For large modes (:math:`|z| > \text{modecutoff}`), these are computed directly.
+    For small modes, they are evaluated using contour integration for numerical stability:
+
+    .. math::
+
+        \phi_k(z)
+        \approx \frac{1}{N_p}\sum_{m=1}^{N_p}\phi_k(z + r_m),
+        \quad r_m = R\,e^{2\pi i (m-1/2)/N_p}.
+    """
     def __init__(
         self,
         lin_op: np.ndarray,
@@ -207,30 +269,86 @@ class _Etd5Diagonal:  # pylint: disable=too-few-public-methods
 
 
 class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
-    """
-    ETD5 non-diagonal system strategy for ETD5 solver.
+    r"""
+    ETD5 non-diagonal system strategy for the ETD5 solver.
 
-    General implementation for full matrix linear operators using
-    matrix-vector products and contour integration for all modes.
+    Implements the fifth-order Exponential Time-Differencing scheme for systems with
+    a **full (non-diagonal) matrix** linear operator :math:`\mathbf{L}`.
+
+    Given the semi-linear system
+
+    .. math::
+
+        \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}),
+
+    this variant computes all exponential and :math:`\phi_k` matrix functions
+    using matrix exponentials and Cauchy contour integration.
 
     Parameters
     ----------
     lin_op : np.ndarray
-        2D array representing the full matrix linear operator.
-    nl_func : callable
-        Nonlinear function nl_func(U) that maps np.ndarray -> np.ndarray.
+        Full (square) matrix linear operator :math:`\mathbf{L}`.
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
     etd_config : ETDConfig
-        Configuration object containing contour_points and contour_radius
-        parameters (modecutoff is not used for non-diagonal systems).
-    """
+        Configuration for contour integration and radius settings.
 
+    Notes
+    -----
+    The ETD5 scheme uses six Runge–Kutta-like stages:
+
+    .. math::
+
+        \mathbf{U}_{n+1}
+        = e^{h\mathbf{L}} \mathbf{U}_n
+        + h \sum_{i=1}^{6} b_i\,\mathbf{N}(\mathbf{k}_i),
+
+    where
+
+    .. math::
+
+        \mathbf{k}_i = e^{c_i h\mathbf{L}} \mathbf{U}_n
+        + h \sum_{j<i} a_{ij}\,\mathbf{N}(\mathbf{k}_j).
+
+    The coefficients :math:`a_{ij}` and :math:`b_i` depend on
+    :math:`\phi_k(\mathbf{Z})` functions with :math:`\mathbf{Z} = h\mathbf{L}`:
+
+    .. math::
+
+        \phi_k(\mathbf{Z})
+        = \frac{1}{(k-1)!}
+        \int_0^1 e^{(1-\theta)\mathbf{Z}}\,\theta^{k-1}\,d\theta.
+
+    These are evaluated numerically by contour integration using
+
+    .. math::
+
+        \phi_k(\mathbf{Z})
+        \approx \frac{1}{N_p}\sum_{m=1}^{N_p}
+        \phi_k(r_m)\,(\,r_m\mathbf{I}-\mathbf{Z}\,)^{-1},
+        \quad r_m = R\,e^{2\pi i (m-1/2)/N_p}.
+
+    This matrix formulation is more computationally intensive but necessary
+    for coupled or non-diagonalizable systems.
+    """
     def __init__(
         self,
         lin_op: np.ndarray,
         nl_func: Callable[[np.ndarray], np.ndarray],
         etd_config: ETDConfig,
     ) -> None:
-        """Initialize ETD5 non-diagonal system strategy."""
+        """
+        Initialize ETD5 non-diagonal system strategy.
+
+        Parameters
+        ----------
+        lin_op : np.ndarray
+            Full matrix linear operator.
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function.
+        etd_config : ETDConfig
+            ETD configuration object.
+        """
         self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
@@ -267,7 +385,7 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
         Update ETD5 coefficients for non-diagonal systems.
 
         Computes exponential and phi function coefficients using contour integration
-        for all modes. Uses matrix exponentials and Cauchy integral formula.
+        for all modes. Uses matrix exponentials and the Cauchy integral formula.
 
         Parameters
         ----------
@@ -326,10 +444,9 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
 
     def n1_init(self, u: np.ndarray) -> None:
         """
-        Initialize the first nonlinear evaluation.
+        Initialize the first nonlinear evaluation (FSAL principle).
 
-        Stores nl_func(u_n) for use in the first stage. This implements the
-        "First Same As Last" (FSAL) principle for efficiency.
+        Stores nl_func(u_n) for use in the first stage.
 
         Parameters
         ----------
@@ -340,7 +457,7 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
 
     def update_stages(self, u: np.ndarray) -> np.ndarray:
         """
-        Advance solution by one time step using six-stage ETD5 scheme.
+        Advance solution by one time step using the six-stage ETD5 scheme.
 
         Executes the six Runge-Kutta-like stages of the ETD5 method using
         matrix-vector products for non-diagonal systems.
@@ -348,12 +465,12 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
         Parameters
         ----------
         u : np.ndarray
-            Current solution vector u_n.
+            Current solution vector at time step n.
 
         Returns
         -------
         np.ndarray
-            Updated solution vector u_{n+1}.
+            Updated solution vector at time step n+1.
         """
         self._k = self._EL14.dot(u) + self._a21.dot(self._NL1)
         self._NL2 = self.nl_func(self._k)
@@ -389,25 +506,63 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
 
 
 class ETD5(ETDCS):
-    """
-    Fifth-order exponential time-differencing solver with constant step size.
+    r"""
+    Fifth-order Exponential Time-Differencing (ETD5) solver with constant step size.
 
-    Implements a 5th-order ETD scheme for semi-linear systems dU/dt = L*U + NL(U),
-    where L is a linear operator and nl_func is a nonlinear function.
+    This solver integrates semi-linear systems of the form
+
+    .. math::
+
+        \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}),
+
+    where :math:`\mathbf{L}` is a linear operator and :math:`\mathbf{N}(\mathbf{U})`
+    is a nonlinear function.
+
+    It implements the fifth-order ETD Runge–Kutta scheme introduced by Cox & Matthews (2002),
+    optimized for both diagonal and non-diagonal systems.
 
     Parameters
     ----------
     lin_op : np.ndarray
-        Linear operator L. Can be 1D (diagonal) or 2D (full matrix).
+        Linear operator :math:`\mathbf{L}`.  
+        Can be one of the following:
+
+        - **1D array** – diagonal system.
+        - **2D matrix** – full non-diagonal operator.
+
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function nl_func(U).
+        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
     etd_config : ETDConfig, optional
-        Configuration for ETD parameters (modecutoff, contour_points, contour_radius).
+        Configuration for ETD parameters (``modecutoff``, ``contour_points``, ``contour_radius``).
 
     Notes
     -----
-    Automatically selects optimized implementation based on operator structure.
-    Uses contour integration for computing matrix exponentials and phi functions.
+    The ETD5 scheme advances the solution using exponential Runge–Kutta stages:
+
+    .. math::
+
+        \mathbf{u}_{n+1}
+        = e^{h\mathbf{L}} \mathbf{u}_n
+        + h \sum_{i=1}^{6} b_i\, \mathbf{N}(\mathbf{k}_i),
+
+    where intermediate stages :math:`\mathbf{k}_i` are defined recursively as
+
+    .. math::
+
+        \mathbf{k}_i = e^{c_i h\mathbf{L}} \mathbf{u}_n
+        + h \sum_{j < i} a_{ij}\, \mathbf{N}(\mathbf{k}_j).
+
+    The coefficients :math:`a_{ij}` and :math:`b_i` depend on the matrix functions
+
+    .. math::
+
+        \phi_k(z) = \frac{1}{(k-1)!} \int_0^1 e^{(1-\theta)z}\theta^{k-1}\,d\theta,
+
+    which are computed via direct evaluation for large modes and contour
+    integration for small :math:`|z| < \text{modecutoff}`.
+
+    This constant-step solver corresponds to the adaptive ETD(3,5) method
+    without embedded error estimation.
     """
 
     _method: Union[_Etd5Diagonal, _Etd5NonDiagonal]
@@ -430,41 +585,23 @@ class ETD5(ETDCS):
         ----------
         lin_op : np.ndarray
             Linear operator (L) in the system dU/dt = L*U + NL(U).
-
-            - If 1D array: treated as a diagonal operator (more efficient).
-            - If 2D array: treated as a full matrix operator.
-
+            If 1D array: treated as a diagonal operator (more efficient).
+            If 2D array: treated as a full matrix operator.
             Supports both real and complex values.
-
-        nl_func : callable
-            Nonlinear function ``nl_func(U)`` that maps ``np.ndarray -> np.ndarray``.
-            Takes the current state vector and returns the nonlinear contribution.
-            Must have signature ``nl_func(u: np.ndarray) -> np.ndarray``.
-
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function that maps the solution vector to its nonlinear contribution.
         etd_config : ETDConfig, default=ETDConfig()
-            Configuration object containing:
-
-            - **modecutoff** (float): Threshold for small eigenvalue modes.
-              Eigenvalues with ``|h*λ| < modecutoff`` use Taylor series expansions
-              instead of direct evaluation to avoid numerical instability in
-              phi functions (diagonal systems only).
-
-            - **contour_points** (int): Number of quadrature points for contour
-              integration when computing matrix exponentials and phi functions.
-              More points increase accuracy but also computational cost.
-
-            - **contour_radius** (float): Radius of the circular contour in the
-              complex plane used for computing matrix functions via the Cauchy
-              integral formula. Should be chosen to properly enclose the
-              spectrum of ``h*L`` where ``h`` is the time step.
+            Configuration object containing modecutoff, contour_points, contour_radius.
+        loglevel : Union[str, int], default="WARNING"
+            Logging level.
 
         Notes
         -----
-        - The solver automatically detects if ``lin_op`` is 1D (diagonal) and selects
-          the optimized ``_Etd5Diagonal`` method; otherwise uses ``_Etd5NonDiagonal``.
+        - The solver automatically detects if lin_op is 1D (diagonal) and selects
+          the optimized _Etd5Diagonal method; otherwise uses _Etd5NonDiagonal.
         - Internal state variables are initialized but coefficients are not computed
           until the first time step is taken.
-        - The parent class ``ETDCS`` handles common setup and validation.
+        - The parent class ETDCS handles common setup and validation.
         """
         super().__init__(lin_op, nl_func, etd_config, loglevel)
         if self._diag:
@@ -478,16 +615,14 @@ class ETD5(ETDCS):
         Reset the solver to its initial state.
 
         Clears all cached coefficients and internal state variables, returning
-        the solver to the state immediately after initialization. This is useful
-        when switching to a different initial condition or when restarting a
-        simulation.
+        the solver to the state immediately after initialization. Useful when
+        switching to a different initial condition or restarting a simulation.
 
         Notes
         -----
-        - Clears the initialization flag, forcing reinitialization on next step
-        - Removes cached step size coefficients
-        - Does not affect the linear operator, nonlinear function, or
-          configuration settings
+        - Clears the initialization flag, forcing reinitialization on next step.
+        - Removes cached step size coefficients.
+        - Does not affect the linear operator, nonlinear function, or configuration settings.
         """
         self.__n1_init = False
         self._h_coeff = None
@@ -507,14 +642,11 @@ class ETD5(ETDCS):
 
         Notes
         -----
-        - If h equals the cached step size (self._h_coeff), returns immediately
-          without recomputing
-        - Delegates actual computation to the internal method object
-          (_Etd5Diagonal or _Etd5NonDiagonal)
-        - Logs coefficient updates for debugging and monitoring
+        - If h equals the cached step size (self._h_coeff), returns immediately without recomputing.
+        - Delegates actual computation to the internal method object (_Etd5Diagonal or _Etd5NonDiagonal).
+        - Logs coefficient updates for debugging and monitoring.
         - The coefficients include matrix exponentials exp(h*L/4), exp(h*L/2),
-          exp(3h*L/4), exp(h*L) and phi functions φ₁, φ₂, φ₃ evaluated at
-          various fractional steps
+          exp(3h*L/4), exp(h*L) and phi functions phi1, phi2, phi3 evaluated at various fractional steps.
         """
         if h == self._h_coeff:
             return
@@ -534,23 +666,22 @@ class ETD5(ETDCS):
         Parameters
         ----------
         u : np.ndarray
-            Current solution vector u_n at time t_n.
+            Current solution vector at time t_n.
         h : float
-            Time step size Δt = t_{n+1} - t_n. Must be positive.
+            Time step size (Δt = t_{n+1} - t_n). Must be positive.
 
         Returns
         -------
         np.ndarray
-            Updated solution vector u_{n+1} at time t_{n+1} = t_n + h.
+            Updated solution vector at time t_{n+1}.
 
         Notes
         -----
-        - Automatically updates coefficients if h has changed since last call
+        - Automatically updates coefficients if h has changed since last call.
         - On the first call, initializes internal state by evaluating nl_func(u) and
-          storing it for subsequent steps (FSAL principle)
-        - The method uses six nonlinear function evaluations per step for
-          5th-order accuracy
-        - Delegates the actual stage computations to the internal method object
+          storing it for subsequent steps (FSAL principle).
+        - The method uses six nonlinear function evaluations per step for 5th-order accuracy.
+        - Delegates the actual stage computations to the internal method object.
         """
         self._update_coeffs(h)
         if not self.__n1_init:

@@ -34,11 +34,8 @@ from rkstiff.solver import StiffSolverAS, StiffSolverCS, SolverConfig
 
 
 class ETDConfig:
-    """Configuration parameters for ETD-based solvers.
-
-    This class manages the numerical parameters used in Exponential Time
-    Differencing methods, including cutoff values for the phi functions and
-    parameters for contour integral computations.
+    """
+    Configuration parameters for ETD-based solvers.
 
     Parameters
     ----------
@@ -47,18 +44,14 @@ class ETDConfig:
         operator below this threshold use Taylor series approximations to avoid
         numerical instabilities. Default is 0.01. Must be between 0.0 and 1.0.
     contour_points : int, optional
-        Number of points used for contour integral evaluation in computing the
-        phi functions. More points provide higher accuracy but increase
-        computational cost. Default is 32. Must be greater than 1.
+        Number of points used for contour integral evaluation in computing the phi functions. Default is 32. Must be greater than 1.
     contour_radius : float, optional
-        Radius of the circular contour used for contour integral evaluation.
-        Default is 1.0. Must be greater than 0.
+        Radius of the circular contour used for contour integral evaluation. Default is 1.0. Must be greater than 0.
 
     Raises
     ------
     ValueError
-        If modecutoff is not between 0.0 and 1.0, if contour_points is not
-        greater than 1, or if contour_radius is not greater than 0.
+        If modecutoff is not between 0.0 and 1.0, if contour_points is not greater than 1, or if contour_radius is not greater than 0.
     TypeError
         If contour_points is not an integer.
 
@@ -78,10 +71,7 @@ class ETDConfig:
 
     Notes
     -----
-    The modecutoff parameter is critical for numerical stability. When eigenvalues
-    of the linear operator have magnitudes close to zero, direct evaluation of
-    phi functions can lead to division by small numbers. The cutoff determines
-    when to switch to Taylor series approximations.
+    The modecutoff parameter is critical for numerical stability. When eigenvalues of the linear operator have magnitudes close to zero, direct evaluation of phi functions can lead to division by small numbers. The cutoff determines when to switch to Taylor series approximations.
     """
 
     def __init__(self, modecutoff: float = 0.01, contour_points: int = 32, contour_radius: float = 1.0) -> None:
@@ -143,7 +133,7 @@ def phi1(z: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-    z : float, complex, or array-like
+    z : np.ndarray
         Real or complex input array.
 
     Returns
@@ -167,7 +157,7 @@ def phi2(z: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-    z : float, complex, or array-like
+    z : np.ndarray
         Real or complex input array.
 
     Returns
@@ -184,7 +174,7 @@ def phi3(z: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-    z : float, complex, or array-like
+    z : np.ndarray
         Real or complex input array.
 
     Returns
@@ -211,15 +201,12 @@ class ETDAS(StiffSolverAS):
     ----------
     lin_op : np.ndarray
         Linear operator matrix L. Should be a square matrix with shape (n, n).
-    nl_func : callable
-        Nonlinear function N(u). Should accept a numpy array and return a numpy
-        array of the same shape. Signature: ``nl_func(u: np.ndarray) -> np.ndarray``
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function N(u).
     config : SolverConfig, optional
-        General solver configuration including tolerances, step size bounds, and
-        other numerical parameters. Default is ``SolverConfig()``.
+        General solver configuration. Default is SolverConfig().
     etd_config : ETDConfig, optional
-        ETD-specific configuration including modecutoff and contour integral
-        parameters. Default is ``ETDConfig()``.
+        ETD-specific configuration. Default is ETDConfig().
     loglevel : str or int, optional
         Logging level for solver output. Can be "DEBUG", "INFO", "WARNING",
         "ERROR", "CRITICAL", or an integer logging level. Default is "WARNING".
@@ -298,12 +285,10 @@ class ETDCS(StiffSolverCS):
     ----------
     lin_op : np.ndarray
         Linear operator matrix L. Should be a square matrix with shape (n, n).
-    nl_func : callable
-        Nonlinear function N(u). Should accept a numpy array and return a numpy
-        array of the same shape. Signature: ``nl_func(u: np.ndarray) -> np.ndarray``
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function N(u).
     etd_config : ETDConfig, optional
-        ETD-specific configuration including modecutoff and contour integral
-        parameters. Default is ``ETDConfig()``.
+        ETD-specific configuration. Default is ETDConfig().
     loglevel : str or int, optional
         Logging level for solver output. Can be "DEBUG", "INFO", "WARNING",
         "ERROR", "CRITICAL", or an integer logging level. Default is "WARNING".

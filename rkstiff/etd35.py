@@ -1,8 +1,17 @@
-"""ETD35 Exponential Time Differencing Adaptive Step Solver.
+r"""
+rkstiff.etd35
+=============
 
-Implements the ETD35 (5th order, 3rd order embedded) adaptive step exponential
-time-differencing algorithm for stiff ODE systems. Supports diagonal,
-diagonalized, and full non-diagonal systems.
+Implements the **ETD(3,5)** exponential time-differencing integrator with
+adaptive step control.
+
+This solver advances stiff systems of ODEs of the form
+
+.. math::
+
+    \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}),
+
+where :math:`\mathbf{L}` is linear and :math:`\mathbf{N}(\mathbf{U})` is nonlinear.
 """
 
 from typing import Callable, Union, Literal
@@ -13,7 +22,57 @@ from rkstiff.solver import SolverConfig
 
 
 class _Etd35Diagonal:
-    """ETD35 diagonal system strategy for ETD35 solver."""
+    r"""
+    ETD35 diagonal system strategy for ETD35 solver.
+
+    Implements the ETD(3,5) method for diagonal linear operators.
+
+    Given a diagonal linear operator :math:`\mathbf{L}` and nonlinear function
+    :math:`\mathbf{N}(\mathbf{U})`, this method integrates systems of the form
+
+    .. math::
+
+        \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}).
+
+    Parameters
+    ----------
+    lin_op : np.ndarray
+        1D array representing the diagonal entries of :math:`\mathbf{L}`.
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
+    etd_config : ETDConfig
+        Configuration object containing ``modecutoff``, ``contour_points``,
+        and ``contour_radius``.
+
+    Notes
+    -----
+    The ETD(3,5) scheme advances the solution via exponential Runge–Kutta stages
+    using precomputed coefficients based on the functions:
+
+    .. math::
+
+        \phi_k(z) = \frac{1}{(k-1)!} \int_0^1 e^{(1-\theta)z}\theta^{k-1} \, d\theta,
+
+    which appear in matrix exponential integrators.
+
+    The update equations use a combination of intermediate exponentials:
+
+    .. math::
+
+        e^{z/4}, \; e^{z/2}, \; e^{3z/4}, \; e^{z},
+
+    and corresponding Runge–Kutta coefficients :math:`a_{ij}` derived from
+    :math:`\phi_1`, :math:`\phi_2`, and :math:`\phi_3`.
+
+    Small modes (where :math:`|z| < \text{modecutoff}`) are computed using
+    contour quadrature to maintain stability:
+
+    .. math::
+
+        \phi_k(z) \approx \frac{1}{N_p}\sum_{m=1}^{N_p} \phi_k(z + r_m),
+
+    where :math:`r_m = R e^{2\pi i (m-1/2)/N_p}` are contour nodes.
+    """
 
     def __init__(
         self,
@@ -21,7 +80,18 @@ class _Etd35Diagonal:
         nl_func: Callable[[np.ndarray], np.ndarray],
         etd_config: ETDConfig,
     ) -> None:
-        """Initialize ETD35 diagonal solver state."""
+        """
+        Initialize ETD35 diagonal solver state.
+
+        Parameters
+        ----------
+        lin_op : np.ndarray
+            Diagonal linear operator.
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function.
+        etd_config : ETDConfig
+            ETD configuration object.
+        """
         self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
@@ -55,12 +125,28 @@ class _Etd35Diagonal:
         self._err = np.zeros(n, dtype=np.complex128)
 
     def update_coeffs(self, h: float) -> None:
-        """Update ETD coefficients for given step size `h`."""
+        """
+        Update ETD coefficients for given step size h.
+
+        Parameters
+        ----------
+        h : float
+            Step size.
+        """
         z = h * self.lin_op
         self._update_coeffs_diagonal(h, z)
 
     def _update_coeffs_diagonal(self, h: float, z: np.ndarray) -> None:
-        """Internal coefficient update for diagonal systems."""
+        """
+        Internal coefficient update for diagonal systems.
+
+        Parameters
+        ----------
+        h : float
+            Step size.
+        z : np.ndarray
+            Elementwise scaled linear operator (z = h * L).
+        """
         self._EL14 = np.exp(z / 4.0)
         self._EL12 = np.exp(z / 2.0)
         self._EL34 = np.exp(3.0 * z / 4.0)
@@ -72,7 +158,18 @@ class _Etd35Diagonal:
         self._update_small_mode_coeffs(h, z, smallmode_idx)
 
     def _update_large_mode_coeffs(self, h: float, z: np.ndarray, smallmode_idx: np.ndarray) -> None:
-        """Compute ETD35 coefficients for modes with |z| >= cutoff."""
+        """
+        Compute ETD35 coefficients for modes with |z| >= cutoff.
+
+        Parameters
+        ----------
+        h : float
+            Step size.
+        z : np.ndarray
+            Elementwise scaled linear operator.
+        smallmode_idx : np.ndarray
+            Boolean mask for small modes.
+        """
         idx = ~smallmode_idx
 
         # Early return if no large modes
@@ -112,7 +209,18 @@ class _Etd35Diagonal:
     def _update_small_mode_coeffs(  # pylint: disable=too-many-locals
         self, h: float, z: np.ndarray, smallmode_idx: np.ndarray
     ) -> None:
-        """Compute ETD35 coefficients for modes with |z| < cutoff using contour integration."""
+        """
+        Compute ETD35 coefficients for modes with |z| < cutoff using contour integration.
+
+        Parameters
+        ----------
+        h : float
+            Step size.
+        z : np.ndarray
+            Elementwise scaled linear operator.
+        smallmode_idx : np.ndarray
+            Boolean mask for small modes.
+        """
         if not np.any(smallmode_idx):
             return
 
@@ -150,11 +258,32 @@ class _Etd35Diagonal:
         self._a76[idx] = (509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1) / 2700
 
     def new_step_init(self, u: np.ndarray) -> None:
-        """Initialize nonlinear term for new step."""
+        """
+        Initialize nonlinear term for new step.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current solution vector.
+        """
         self._NL1 = self.nl_func(u)
 
     def update_stages(self, u: np.ndarray, accept: bool) -> tuple[np.ndarray, np.ndarray]:
-        """Perform one ETD35 stage pass for a diagonal system."""
+        """
+        Perform one ETD35 stage pass for a diagonal system.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current solution vector.
+        accept : bool
+            Whether the previous step was accepted (FSAL principle).
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            Updated solution and error estimate.
+        """
         if accept:
             self.new_step_init(u)
 
@@ -187,7 +316,44 @@ class _Etd35Diagonal:
 
 
 class _Etd35Diagonalized(_Etd35Diagonal):
-    """ETD35 solver for non-diagonal systems via eigenvector diagonalization."""
+    r"""
+    ETD35 solver for non-diagonal systems via eigenvector diagonalization.
+
+    Diagonalizes the full matrix :math:`\mathbf{L}` using eigen-decomposition:
+
+    .. math::
+
+        \mathbf{L} = \mathbf{S} \, \mathbf{\Lambda} \, \mathbf{S}^{-1},
+
+    and performs all ETD(3,5) computations in the diagonal basis of
+    :math:`\mathbf{\Lambda}`.
+
+    Parameters
+    ----------
+    lin_op : np.ndarray
+        Full (square) matrix linear operator :math:`\mathbf{L}`.
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
+    etd_config : ETDConfig
+        ETD configuration object controlling spectral radius and contour settings.
+
+    Notes
+    -----
+    This variant transforms the system into the eigenbasis:
+
+    .. math::
+
+        \mathbf{v} = \mathbf{S}^{-1}\mathbf{U}, \qquad
+        \frac{d\mathbf{v}}{dt} = \mathbf{\Lambda}\mathbf{v}
+            + \mathbf{S}^{-1}\mathbf{N}(\mathbf{S}\mathbf{v}).
+
+    The ETD(3,5) coefficients are then computed elementwise in the diagonal
+    eigenvalue space using the same :math:`\phi_k`-based update rules as
+    the purely diagonal solver.
+
+    Numerical stability requires the condition number of :math:`\mathbf{S}` to
+    remain moderate (e.g. :math:`\kappa(\mathbf{S}) < 10^3`).
+    """
 
     def __init__(
         self,
@@ -195,7 +361,18 @@ class _Etd35Diagonalized(_Etd35Diagonal):
         nl_func: Callable[[np.ndarray], np.ndarray],
         etd_config: ETDConfig,
     ) -> None:
-        """Initialize diagonalized ETD35 solver."""
+        """
+        Initialize diagonalized ETD35 solver.
+
+        Parameters
+        ----------
+        lin_op : np.ndarray
+            Full matrix linear operator.
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function.
+        etd_config : ETDConfig
+            ETD configuration object.
+        """
         super().__init__(lin_op, nl_func, etd_config)
         if len(lin_op.shape) == 1:
             raise ValueError("Cannot diagonalize a 1D system")
@@ -211,17 +388,45 @@ class _Etd35Diagonalized(_Etd35Diagonal):
         self._v = np.zeros(lin_op.shape[0])
 
     def update_coeffs(self, h: float) -> None:
-        """Update coefficients using eigenvalues."""
+        """
+        Update coefficients using eigenvalues.
+
+        Parameters
+        ----------
+        h : float
+            Step size.
+        """
         z = h * self._eig_vals
         self._update_coeffs_diagonal(h, z)
 
     def new_step_init(self, u: np.ndarray) -> None:
-        """Initialize transformed nonlinear term for new step."""
+        """
+        Initialize transformed nonlinear term for new step.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current solution vector.
+        """
         self._NL1 = self._Sinv.dot(self.nl_func(u))
         self._v = self._Sinv.dot(u)
 
     def update_stages(self, u: np.ndarray, accept: bool) -> tuple[np.ndarray, np.ndarray]:
-        """Perform one ETD35 stage pass for diagonalized systems."""
+        """
+        Perform one ETD35 stage pass for diagonalized systems.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current solution vector.
+        accept : bool
+            Whether the previous step was accepted (FSAL principle).
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            Updated solution and error estimate.
+        """
         if accept:
             self.new_step_init(u)
 
@@ -256,7 +461,56 @@ class _Etd35Diagonalized(_Etd35Diagonal):
 
 
 class _Etd35NonDiagonal:
-    """ETD35 solver for full (non-diagonal, non-diagonalizable) linear operators."""
+    r"""
+    ETD35 solver for full (non-diagonal, non-diagonalizable) linear operators.
+
+    Implements the ETD(3,5) exponential time-differencing scheme directly
+    using matrix exponentials and contour-integrated :math:`\phi` functions.
+
+    Parameters
+    ----------
+    lin_op : np.ndarray
+        Full matrix linear operator :math:`\mathbf{L}`.
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
+    etd_config : ETDConfig
+        ETD configuration object (controls contour integration settings).
+
+    Notes
+    -----
+    This version computes the matrix coefficients directly from
+
+    .. math::
+
+        \phi_k(\mathbf{Z}) =
+            \frac{1}{(k-1)!} \int_0^1 e^{(1-\theta)\mathbf{Z}} \theta^{k-1}\,d\theta,
+
+    where :math:`\mathbf{Z} = h\mathbf{L}`.
+
+    To avoid ill-conditioning when :math:`\mathbf{Z}` has small eigenvalues,
+    the integral is approximated by a complex contour average:
+
+    .. math::
+
+        \phi_k(\mathbf{Z}) \approx \frac{1}{N_p}\sum_{m=1}^{N_p}
+            \phi_k(r_m)\,(\,r_m\mathbf{I} - \mathbf{Z}\,)^{-1},
+
+    where :math:`r_m = R e^{2\pi i (m-1/2)/N_p}`.
+
+    The stage updates follow the exponential Runge–Kutta pattern:
+
+    .. math::
+
+        \mathbf{k}_{i+1} =
+            e^{c_i\mathbf{Z}}\mathbf{u}_n +
+            \sum_j a_{ij}\,\mathbf{N}(\mathbf{k}_j),
+
+    where :math:`a_{ij}` are constructed from combinations of
+    :math:`\phi_1`, :math:`\phi_2`, and :math:`\phi_3`.
+
+    This direct matrix form is slower but numerically robust for
+    moderate-size dense systems where diagonalization is not feasible.
+    """
 
     def __init__(
         self,
@@ -264,7 +518,18 @@ class _Etd35NonDiagonal:
         nl_func: Callable[[np.ndarray], np.ndarray],
         etd_config: ETDConfig,
     ) -> None:
-        """Initialize ETD35 for non-diagonal systems."""
+        """
+        Initialize ETD35 for non-diagonal systems.
+
+        Parameters
+        ----------
+        lin_op : np.ndarray
+            Full matrix linear operator.
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function.
+        etd_config : ETDConfig
+            ETD configuration object.
+        """
         self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
@@ -300,7 +565,14 @@ class _Etd35NonDiagonal:
         self._err = np.zeros(n, dtype=np.complex128)
 
     def update_coeffs(self, h: float) -> None:  # pylint: disable=too-many-locals
-        """Update ETD coefficients for given step size `h`."""
+        """
+        Update ETD coefficients for given step size h.
+
+        Parameters
+        ----------
+        h : float
+            Step size.
+        """
         z = h * self.lin_op
         # Use expm matrix exponential function from scipy
         self._EL14 = expm(z / 4.0)
@@ -351,11 +623,32 @@ class _Etd35NonDiagonal:
         self._a76 = h * (509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1) / 2700
 
     def new_step_init(self, u: np.ndarray) -> None:
-        """Initialize nonlinear term for new time step."""
+        """
+        Initialize nonlinear term for new time step.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current solution vector.
+        """
         self._NL1 = self.nl_func(u)
 
     def update_stages(self, u: np.ndarray, accept: bool) -> tuple[np.ndarray, np.ndarray]:
-        """Perform one ETD35 Runge–Kutta update for non-diagonal systems."""
+        """
+        Perform one ETD35 Runge–Kutta update for non-diagonal systems.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current solution vector.
+        accept : bool
+            Whether the previous step was accepted (FSAL principle).
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            Updated solution and error estimate.
+        """
         if accept:
             self.new_step_init(u)
 
@@ -393,32 +686,73 @@ class _Etd35NonDiagonal:
 
 
 class ETD35(ETDAS):
-    """
-    Fifth-order Exponential Time Differencing solver with adaptive stepping (ETD(3,5)).
+    r"""
+    Fifth-order Exponential Time Differencing (ETD(3,5)) solver with adaptive stepping.
 
-    This class implements the ETD(3,5) scheme for stiff systems of the form:
-        dU/dt = L·U + N(U)
+    This solver integrates stiff ODE systems of the form
 
-    It adapts the time step automatically using an embedded third-order method
-    for local error control, via the adaptive machinery of :class:`ETDAS`.
+    .. math::
 
-    Attributes
+        \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}),
+
+    using the **ETD(3,5)** scheme — a fifth-order exponential Runge–Kutta
+    method with an embedded third-order scheme for local error control.
+    Adaptive step adjustment is handled by the base :class:`rkstiff.etd.ETDAS`
+    controller.
+
+    Supports diagonal, diagonalized, and full non-diagonal linear operators.
+
+    Parameters
     ----------
     lin_op : np.ndarray
-        Linear operator `L` in the system. May be a 1D array (diagonal system)
-        or a 2D square matrix (non-diagonal system).
+        Linear operator :math:`\mathbf{L}` in the system
+        :math:`\dot{\mathbf{U}} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U})`.
+
+        Can be one of the following:
+
+        - **1D array** – diagonal system.
+        - **2D square matrix** – full linear operator (non-diagonal).
 
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function `N(U)`.
-
-    diagonalize : bool
-        If True, attempts eigenvalue decomposition to transform system into
-        diagonal form before solving.
+        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
+    config : SolverConfig, optional
+        General solver configuration controlling adaptivity thresholds,
+        safety factors, and other integration parameters.
+    etd_config : ETDConfig, optional
+        Configuration for ETD-specific parameters such as contour integration
+        settings and spectral radius estimation.
+    diagonalize : bool, optional
+        If ``True``, performs eigenvalue decomposition to transform the
+        system into diagonal form before integration.
+    loglevel : Union[str, int], optional
+        Logging verbosity level.
 
     Notes
     -----
-    Solver behavior (safety factors, error tolerances, etc.) is governed by
-    :class:`SolverConfig` and :class:`ETDConfig`.
+    The local error estimate is computed using an embedded third-order method,
+    and timestep adaptivity uses the following heuristic:
+
+    .. math::
+
+        h_{\text{new}} = h_{\text{old}} \nu
+            \left( \frac{\epsilon}{\mathrm{err}} \right)^{1/(q+1)},
+
+    where :math:`q=4` for ETD(3,5), :math:`\epsilon` is the tolerance,
+    and :math:`\nu` is a user-defined safety factor.
+
+    Inherited configuration parameters:
+
+    - From **ETDAS**:
+
+    - ``modecutoff`` – threshold for contour integration.
+    - ``contour_points`` – number of contour quadrature points.
+    - ``contour_radius`` – contour radius in the complex plane.
+
+    - From **StiffSolverAS**:
+
+    - ``epsilon``, ``incr_f``, ``decr_f`` – adaptive step constants.
+    - ``safety_f`` – multiplicative safety factor.
+    - ``adapt_cutoff``, ``minh`` – adaptive and minimum step limits.
     """
 
     _method: Union[_Etd35Diagonal, _Etd35Diagonalized, _Etd35NonDiagonal]
@@ -432,7 +766,28 @@ class ETD35(ETDAS):
         diagonalize: bool = False,
         loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ):
-        """Initialize ETD35 adaptive solver."""
+        """
+        Initialize ETD35 adaptive solver.
+
+        Parameters
+        ----------
+        lin_op : np.ndarray
+            Linear operator L in the system. May be a 1D array (diagonal system)
+            or a 2D square matrix (non-diagonal system).
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function N(U).
+        config : SolverConfig, optional
+            General solver configuration controlling adaptivity thresholds,
+            safety factors, and other integration parameters.
+        etd_config : ETDConfig, optional
+            Configuration for ETD-specific parameters, such as contour integration
+            settings and spectral radius estimation.
+        diagonalize : bool, optional
+            If True, attempts eigenvalue decomposition to transform system into
+            diagonal form before solving.
+        loglevel : Union[str, int], optional
+            Logging level.
+        """
         super().__init__(
             lin_op,
             nl_func,
@@ -451,13 +806,24 @@ class ETD35(ETDAS):
         self._accept = False
 
     def _reset(self) -> None:
-        """Reset internal solver state for restart or initialization."""
+        """
+        Reset internal solver state for restart or initialization.
+
+        Resets cached coefficients and flags for adaptive stepping.
+        """
         self._stages_init = False
         self._h_coeff = None
         self._accept = False
 
     def _update_coeffs(self, h: float) -> None:
-        """Update ETD35 coefficients if time step has changed."""
+        """
+        Update ETD35 coefficients if time step has changed.
+
+        Parameters
+        ----------
+        h : float
+            Time step size.
+        """
         if h == self._h_coeff:
             return
         self._h_coeff = h
@@ -471,14 +837,14 @@ class ETD35(ETDAS):
         Parameters
         ----------
         u : np.ndarray
-            Current state vector `u_n`.
+            Current state vector at time step n.
         h : float
             Time step size.
 
         Returns
         -------
         tuple[np.ndarray, np.ndarray]
-            The tuple `(u_next, err_estimate)` with the next-step value and
+            The tuple (u_next, err_estimate) with the next-step value and
             the local truncation error estimate.
         """
         self._update_coeffs(h)
@@ -488,5 +854,12 @@ class ETD35(ETDAS):
         return self._method.update_stages(u, self._accept)
 
     def _q(self) -> int:
-        """Order variable for computing suggested step size (embedded order + 1)"""
+        """
+        Order variable for computing suggested step size (embedded order + 1).
+
+        Returns
+        -------
+        int
+            Effective order (4 for ETD(3,5)), used by the adaptive controller.
+        """
         return 4

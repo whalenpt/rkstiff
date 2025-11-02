@@ -1,11 +1,12 @@
-"""rkstiff.models
+"""
+rkstiff.models
 
 Provides common models and initial conditions for testing stiff solvers.
 
 This module includes:
-- KdV (Korteweg-de Vries) equation utilities
-- Burgers equation utilities
-- Allen-Cahn equation utilities
+    - KdV (Korteweg-de Vries) equation utilities
+    - Burgers equation utilities
+    - Allen-Cahn equation utilities
 """
 
 from typing import Callable, Tuple, Sequence
@@ -14,18 +15,18 @@ import numpy as np
 
 def kdv_soliton(x: np.ndarray, ampl: float = 0.5, x0: float = 0.0, t: float = 0.0) -> np.ndarray:
     """
-    Returns a single KdV soliton initial condition.
+    Return a single KdV soliton initial condition.
 
     Parameters
     ----------
     x : np.ndarray
         Spatial coordinate array.
-    ampl : float, default=0.5
-        Amplitude parameter of the soliton.
-    x0 : float, default=0.0
-        Initial position of the soliton.
-    t : float, default=0.0
-        Time parameter (for time-evolved soliton).
+    ampl : float, optional
+        Amplitude parameter of the soliton. Default is 0.5.
+    x0 : float, optional
+        Initial position of the soliton. Default is 0.0.
+    t : float, optional
+        Time parameter (for time-evolved soliton). Default is 0.0.
 
     Returns
     -------
@@ -38,7 +39,7 @@ def kdv_soliton(x: np.ndarray, ampl: float = 0.5, x0: float = 0.0, t: float = 0.
 
 def kdv_multi_soliton(x: np.ndarray, ampl: Sequence[float], x0: Sequence[float], t: float = 0.0) -> np.ndarray:
     """
-    Returns a multi-soliton KdV initial condition.
+    Return a multi-soliton KdV initial condition.
 
     Parameters
     ----------
@@ -48,8 +49,8 @@ def kdv_multi_soliton(x: np.ndarray, ampl: Sequence[float], x0: Sequence[float],
         Amplitude parameters for each soliton (length m).
     x0 : Sequence[float]
         Initial positions for each soliton (length m).
-    t : float, default=0.0
-        Time parameter (for time-evolved solitons).
+    t : float, optional
+        Time parameter (for time-evolved solitons). Default is 0.0.
 
     Returns
     -------
@@ -77,7 +78,7 @@ def kdv_multi_soliton(x: np.ndarray, ampl: Sequence[float], x0: Sequence[float],
 
 def kdv_ops(kx: np.ndarray) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarray]]:
     """
-    Returns the linear operator and nonlinear function for the KdV equation.
+    Return the linear operator and nonlinear function for the KdV equation.
 
     The KdV equation is: u_t + 6u*u_x + u_xxx = 0
 
@@ -105,7 +106,7 @@ def kdv_ops(kx: np.ndarray) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarr
 
 def burgers_ops(kx: np.ndarray, mu: float) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarray]]:
     """
-    Returns the linear operator and nonlinear function for the viscous Burgers equation.
+    Return the linear operator and nonlinear function for the viscous Burgers equation.
 
     The Burgers equation is: u_t + u*u_x = mu * u_xx
 
@@ -137,7 +138,7 @@ def allen_cahn_ops(
     x: np.ndarray, d_cheb_matrix: np.ndarray, epsilon: float = 0.01
 ) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarray]]:
     """
-    Returns the linear operator and nonlinear function for the Allen-Cahn equation.
+    Return the linear operator and nonlinear function for the Allen-Cahn equation.
 
     The Allen-Cahn equation is: u_t = epsilon * u_xx + u - u^3
 
@@ -147,8 +148,8 @@ def allen_cahn_ops(
         Spatial coordinate array (Chebyshev grid).
     d_cheb_matrix : np.ndarray
         Chebyshev differentiation matrix.
-    epsilon : float, default=0.01
-        Diffusion coefficient (must be positive).
+    epsilon : float, optional
+        Diffusion coefficient (must be positive). Default is 0.01.
 
     Returns
     -------

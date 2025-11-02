@@ -10,22 +10,29 @@ class _Etd4Diagonal:  # pylint: disable=too-few-public-methods
     """
     ETD4 diagonal system strategy for ETD4 solver.
 
-    Optimized implementation for diagonal linear operators that avoids
-    matrix operations by using element-wise operations on vectors.
-
     Parameters
     ----------
     lin_op : np.ndarray
         1D array representing the diagonal linear operator.
-    nl_func : callable
-        Nonlinear function nl_func(U) that maps np.ndarray -> np.ndarray.
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function.
     etd_config : ETDConfig
-        Configuration object containing modecutoff, contour_points,
-        and contour_radius parameters.
+        Configuration object containing modecutoff, contour_points, and contour_radius parameters.
     """
 
     def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray], etd_config: ETDConfig) -> None:
-        """Initialize ETD4 diagonal system strategy"""
+        """
+        Initialize ETD4 diagonal system strategy.
+
+        Parameters
+        ----------
+        lin_op : np.ndarray
+            Diagonal linear operator.
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function.
+        etd_config : ETDConfig
+            ETD configuration.
+        """
         self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
@@ -40,10 +47,6 @@ class _Etd4Diagonal:  # pylint: disable=too-few-public-methods
     def update_coeffs(self, h: float) -> None:
         """
         Update ETD4 coefficients based on step size h.
-
-        Computes exponential and phi function coefficients for the diagonal system.
-        Small modes (|`h*λ`| < modecutoff) use contour integration to avoid numerical
-        instability, while large modes use direct evaluation.
 
         Parameters
         ----------
@@ -99,9 +102,6 @@ class _Etd4Diagonal:  # pylint: disable=too-few-public-methods
         """
         Initialize the first nonlinear evaluation.
 
-        Stores nl_func(u_n) for use in the first stage. This implements the
-        "First Same As Last" (FSAL) principle for efficiency.
-
         Parameters
         ----------
         u : np.ndarray
@@ -113,18 +113,15 @@ class _Etd4Diagonal:  # pylint: disable=too-few-public-methods
         """
         Advance solution by one time step using four-stage ETD4 scheme.
 
-        Executes the four Runge-Kutta-like stages of the ETD4 method with
-        element-wise operations optimized for diagonal systems.
-
         Parameters
         ----------
         u : np.ndarray
-            Current solution vector u_n.
+            Current solution vector.
 
         Returns
         -------
         np.ndarray
-            Updated solution vector u_{n+1}.
+            Updated solution vector.
         """
         # Use First is same as last principle (FSAL)
         self._k = self._EL2 * u + self._a21 * self._NL1
@@ -142,18 +139,14 @@ class _Etd4NonDiagonal:  # pylint: disable=too-few-public-methods
     """
     ETD4 non-diagonal system strategy for ETD4 solver.
 
-    General implementation for full matrix linear operators using
-    matrix-vector products and contour integration for all modes.
-
     Parameters
     ----------
     lin_op : np.ndarray
         2D array representing the full matrix linear operator.
-    nl_func : callable
-        Nonlinear function nl_func(U) that maps np.ndarray -> np.ndarray.
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function.
     etd_config : ETDConfig
-        Configuration object containing contour_points and contour_radius
-        parameters (modecutoff is not used for non-diagonal systems).
+        Configuration object containing contour_points and contour_radius parameters.
     """
 
     def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray], etd_config: ETDConfig) -> None:
@@ -163,11 +156,11 @@ class _Etd4NonDiagonal:  # pylint: disable=too-few-public-methods
         Parameters
         ----------
         lin_op : np.ndarray
-            2D array representing the full matrix linear operator.
-        nl_func : callable
-            Nonlinear function with signature: nl_func(u: np.ndarray) -> np.ndarray
+            Full matrix linear operator.
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function.
         etd_config : ETDConfig
-            Configuration parameters for the ETD scheme.
+            ETD configuration.
         """
         self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
@@ -185,9 +178,6 @@ class _Etd4NonDiagonal:  # pylint: disable=too-few-public-methods
     def update_coeffs(self, h: float) -> None:
         """
         Update ETD4 coefficients based on step size h.
-
-        Computes matrix exponentials and phi function matrices using contour
-        integration for the full non-diagonal system.
 
         Parameters
         ----------
@@ -227,9 +217,6 @@ class _Etd4NonDiagonal:  # pylint: disable=too-few-public-methods
         """
         Initialize the first nonlinear evaluation.
 
-        Stores nl_func(u_n) for use in the first stage. This implements the
-        "First Same As Last" (FSAL) principle for efficiency.
-
         Parameters
         ----------
         u : np.ndarray
@@ -241,18 +228,15 @@ class _Etd4NonDiagonal:  # pylint: disable=too-few-public-methods
         """
         Advance solution by one time step using four-stage ETD4 scheme.
 
-        Executes the four Runge-Kutta-like stages of the ETD4 method using
-        matrix-vector products for non-diagonal systems.
-
         Parameters
         ----------
         u : np.ndarray
-            Current solution vector u_n.
+            Current solution vector.
 
         Returns
         -------
         np.ndarray
-            Updated solution vector u_{n+1}.
+            Updated solution vector.
         """
         self._k = self._EL2.dot(u) + self._a21.dot(self._NL1)
         self._NL2 = self.nl_func(self._k)
@@ -271,37 +255,21 @@ class ETD4(ETDCS):
     r"""
     Fourth-order exponential time-differencing solver with constant step size.
 
-    This class implements Krogstad's 4th-order ETD scheme for solving semi-linear
-    differential equations of the form:
-
-    .. math::
-
-       \frac{dU}{dt} = L U + N(U)
-
-    where :math:`L` is a linear operator and :math:`N(U)` is a nonlinear function.
-
-    The method uses contour integration for computing matrix exponentials and
-    phi functions.
-
-    The solver maintains internal state and automatically updates coefficients when
-    the step size changes. It supports both diagonal and non-diagonal linear operators,
-    automatically selecting the appropriate optimized implementation.
-
-    Attributes
+    Parameters
     ----------
     lin_op : np.ndarray
-        Linear operator `L` in the system `dU/dt = L·U + N(U)`.
-        Can be either:
-        - A 2D matrix (for full linear operators)
-        - A 1D array (for diagonal systems)
-
+        Linear operator in the system dU/dt = L·U + N(U).
+        Can be either a 2D matrix (full operator) or 1D array (diagonal).
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function `N(U)` in the system `dU/dt = L·U + N(U)`.
+        Nonlinear function in the system dU/dt = L·U + N(U).
+    etd_config : ETDConfig, optional
+        ETD configuration. Default is ETDConfig().
+    loglevel : str or int, optional
+        Logging verbosity level. Default is "WARNING".
 
     Notes
     -----
-    - Automatically detects whether the linear operator is diagonal and
-      uses optimized routines accordingly (``_Etd4Diagonal`` vs ``_Etd4NonDiagonal``).
+    - Automatically detects whether the linear operator is diagonal and uses optimized routines accordingly.
     - Coefficients are cached and only recomputed when the step size changes.
     - The first step initializes internal state for the multi-stage Runge–Kutta scheme.
     - For diagonal systems, modes with small :math:`|h \lambda| < \text{modecutoff}`
@@ -339,36 +307,16 @@ class ETD4(ETDCS):
         r"""
         Initialize the ETD4 solver.
 
-        Sets up the fourth-order exponential time-differencing solver by configuring
-        the linear and nonlinear components, and selecting the appropriate internal
-        method (diagonal or non-diagonal) based on the structure of the linear operator.
-
         Parameters
         ----------
         lin_op : np.ndarray
-            Linear operator (:math:`L`) in the system :math:`dU/dt = L\,U + N(U)`.
-            - If 1D array: treated as diagonal operator (more efficient)
-            - If 2D array: treated as full matrix operator
-        nl_func : callable
-            Nonlinear function :math:`N(U)` that maps ``np.ndarray -> np.ndarray``.
-            Takes the current state vector and returns the nonlinear contribution.
+            Linear operator in the system dU/dt = L·U + N(U).
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function.
         etd_config : ETDConfig, optional
-            Configuration object containing:
-              - ``modecutoff`` (float): Threshold for small eigenvalue modes.
-              - ``contour_points`` (int): Number of quadrature points for contour
-                integration when computing matrix exponentials and phi functions.
-              - ``contour_radius`` (float): Radius of the circular contour in the
-                complex plane used for computing matrix functions.
+            ETD configuration.
         loglevel : str or int, optional
-            Logging verbosity level. Defaults to "WARNING".
-
-        Notes
-        -----
-        - Automatically detects if ``lin_op`` is 1D (diagonal) and selects
-          the optimized ``_Etd4Diagonal`` method; otherwise uses ``_Etd4NonDiagonal``.
-        - Internal state variables are initialized but coefficients are not computed
-          until the first time step is taken.
-        - The parent class ``ETDCS`` handles common setup and validation.
+            Logging verbosity level.
         """
         super().__init__(lin_op, nl_func, etd_config=etd_config, loglevel=loglevel)
         self._method = Union[_Etd4Diagonal, _Etd4NonDiagonal]
@@ -382,17 +330,11 @@ class ETD4(ETDCS):
         """
         Reset the solver to its initial state.
 
-        Clears all cached coefficients and internal state variables, returning
-        the solver to the state immediately after initialization. This is useful
-        when switching to a different initial condition or when restarting a
-        simulation.
-
         Notes
         -----
         - Clears the initialization flag, forcing reinitialization on next step
         - Removes cached step size coefficients
-        - Does not affect the linear operator, nonlinear function, or
-          configuration settings
+        - Does not affect the linear operator, nonlinear function, or configuration settings
         """
         self.__n1_init = False
         self._h_coeff = None
@@ -401,24 +343,10 @@ class ETD4(ETDCS):
         """
         Update ETD4 coefficients if the step size has changed.
 
-        Computes and caches the exponential and phi function coefficients required
-        for the ETD4 method. Coefficients depend on h*L and are expensive to compute,
-        so they are only recalculated when the step size changes.
-
         Parameters
         ----------
         h : float
             Time step size. Must be positive.
-
-        Notes
-        -----
-        - If h equals the cached step size (self._h_coeff), returns immediately
-          without recomputing
-        - Delegates actual computation to the internal method object
-          (_Etd4Diagonal or _Etd4NonDiagonal)
-        - Logs coefficient updates for debugging and monitoring
-        - The coefficients include matrix exponentials exp(h*L), exp(h*L/2) and
-          phi functions φ₁, φ₂, φ₃ evaluated at h*L and h*L/2
         """
         if h == self._h_coeff:
             return
@@ -430,31 +358,17 @@ class ETD4(ETDCS):
         """
         Advance the solution by one time step using the ETD4 scheme.
 
-        Computes u_{n+1} from u_n by executing the four-stage Runge-Kutta-like
-        procedure of the ETD4 method. This includes evaluating the nonlinear
-        function at intermediate stages and combining results using precomputed
-        exponential and phi function coefficients.
-
         Parameters
         ----------
         u : np.ndarray
-            Current solution vector u_n at time t_n.
+            Current solution vector.
         h : float
-            Time step size Δt = t_{n+1} - t_n. Must be positive.
+            Time step size.
 
         Returns
         -------
         np.ndarray
-            Updated solution vector u_{n+1} at time t_{n+1} = t_n + h.
-
-        Notes
-        -----
-        - Automatically updates coefficients if h has changed since last call
-        - On the first call, initializes internal state by evaluating nl_func(u) and
-          storing it for subsequent steps (FSAL principle)
-        - The method uses four nonlinear function evaluations per step for
-          4th-order accuracy
-        - Delegates the actual stage computations to the internal method object
+            Updated solution vector.
         """
         self._update_coeffs(h)
         if not self.__n1_init:
