@@ -39,7 +39,8 @@ ETD methods are particularly efficient when
 
 from typing import Union, Literal, Callable
 import numpy as np
-from rkstiff.solver import StiffSolverAS, StiffSolverCS, SolverConfig
+from .solvercs import StiffSolverCS
+from .solveras import SolverConfig, StiffSolverAS
 
 
 class ETDConfig:
@@ -53,7 +54,7 @@ class ETDConfig:
     ----------
     modecutoff : float, optional
         Threshold for switching between direct evaluation and contour integration.
-        For :math:`|z| < \text{modecutoff}`, :math:`\psi_k(z)` is computed via 
+        For :math:`|z| < \text{modecutoff}`, :math:`\psi_k(z)` is computed via
         Contour integration; otherwise, direct evaluation is used.
     contour_points : int, optional
         Number of quadrature nodes used for contour integration.
@@ -64,7 +65,7 @@ class ETDConfig:
     Notes
     -----
     For small :math:`z`, the ETD psi-functions are numerically unstable via direct evaluation and a
-    contour integral representation is preferred. 
+    contour integral representation is preferred.
 
     .. math::
 

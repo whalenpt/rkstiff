@@ -6,9 +6,8 @@ from rkstiff.etd34 import ETD34
 from rkstiff.if34 import IF34
 from rkstiff.if45dp import IF45DP
 from rkstiff.etd import ETDAS
-from rkstiff.etd5 import ETD5
 from rkstiff.if4 import IF4
-from rkstiff.solver import StiffSolverAS, SolverConfig
+from rkstiff.solveras import StiffSolverAS, SolverConfig
 from rkstiff.etd import ETDConfig
 from testing_util import (
     allen_cahn_setup,

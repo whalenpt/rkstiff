@@ -6,18 +6,20 @@ This page provides a complete reference for the rkstiff package, organized by fu
 Core Solver
 -----------
 
-The main solver interface for solving stiff differential equations.
+The main solver interfaces for solving stiff differential equations.
 
 .. autosummary::
    :toctree: _autosummary
    :nosignatures:
    
    rkstiff.solver
+   rkstiff.solveras
+   rkstiff.solvercs
 
 Exponential Time Differencing Methods
 --------------------------------------
 
-ETD (Exponential Time Differencing) methods for stiff ODEs and PDEs.
+ETD (Exponential Time Differencing) methods for stiff differential equations.
 
 .. autosummary::
    :toctree: _autosummary

@@ -22,7 +22,7 @@ a consistent constant-step interface.
 from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
-from rkstiff.solver import StiffSolverCS
+from .solvercs import StiffSolverCS
 
 
 class _IF4Diagonal:  # pylint: disable=R0903
@@ -255,7 +255,7 @@ class IF4(StiffSolverCS):
         self.logger.debug("IF4 coefficients updated for step size h=%s", h)
 
     def _update_stages(self, u: np.ndarray, h: float) -> np.ndarray:
-        r"""Compute :math:`\mathbf{u}_{n+1}` from :math:`\mathbf{u}_n` in one step.""" 
+        r"""Compute :math:`\mathbf{u}_{n+1}` from :math:`\mathbf{u}_n` in one step."""
         self._update_coeffs(h)
         if not self.__n1_init:
             self._method.n1_init(u)

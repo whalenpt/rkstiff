@@ -2,7 +2,7 @@
 
 from typing import Callable, Literal, Union
 import numpy as np
-from rkstiff.solver import StiffSolverAS, SolverConfig
+from .solveras import SolverConfig, StiffSolverAS
 
 
 class IF45DP(StiffSolverAS):

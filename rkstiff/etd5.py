@@ -31,7 +31,7 @@ Journal of Computational Physics, 280, 579–601.
 from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
-from rkstiff.etd import ETDCS, ETDConfig, psi1, psi2, psi3
+from .etd import ETDCS, ETDConfig, psi1, psi2, psi3
 
 
 class _Etd5Diagonal:  # pylint: disable=too-few-public-methods

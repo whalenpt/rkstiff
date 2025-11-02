@@ -16,11 +16,11 @@ using an exponential Runge–Kutta method of order four with embedded
 third-order error estimation for adaptive step control.
 """
 
+import logging
 from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
-from rkstiff.solver import SolverConfig
-from rkstiff.etd import ETDAS, ETDConfig, psi1, psi2, psi3
+from .etd import ETDAS, ETDConfig, psi1, psi2, psi3, SolverConfig
 
 
 class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
@@ -44,6 +44,7 @@ class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
         lin_op: np.ndarray,
         nl_func: Callable[[np.ndarray], np.ndarray],
         etd_config: ETDConfig,
+        logger: logging.Logger = logging.getLogger(__name__)
     ) -> None:
         """
         Initialize ETD34 diagonal system strategy.
@@ -56,10 +57,13 @@ class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
             Nonlinear function.
         etd_config : ETDConfig
             ETD configuration object.
+        logger : logging.Logger, optional
+            Logger instance for this solver.
         """
         self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
+        self.logger = logger
 
         n = lin_op.shape[0]
         self._EL, self._EL2 = [np.zeros(n, dtype=np.complex128) for _ in range(2)]
@@ -201,9 +205,17 @@ class _Etd34Diagonalized(_Etd34Diagonal):
         Nonlinear function.
     etd_config : ETDConfig
         ETD configuration object.
+    logger : logging.Logger, optional
+        Logger instance for this solver.
     """
 
-    def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray], etd_config: ETDConfig):
+    def __init__(
+        self,
+        lin_op: np.ndarray,
+        nl_func: Callable[[np.ndarray], np.ndarray],
+        etd_config: ETDConfig,
+        logger: logging.Logger = logging.getLogger(__name__),
+    ) -> None:
         """
         Initialize diagonalized strategy; computes eigen-decomposition of lin_op.
 
@@ -215,8 +227,10 @@ class _Etd34Diagonalized(_Etd34Diagonal):
             Nonlinear function.
         etd_config : ETDConfig
             ETD configuration object.
+        logger : logging.Logger, optional
+            Logger instance for this solver.
         """
-        super().__init__(lin_op, nl_func, etd_config)
+        super().__init__(lin_op, nl_func, etd_config, logger)
         if len(lin_op.shape) == 1:
             raise ValueError("cannot diagonalize a 1D system")
         lin_op_cond = np.linalg.cond(lin_op)
@@ -531,12 +545,12 @@ class ETD34(ETDAS):
         """
         super().__init__(lin_op, nl_func, config=config, etd_config=etd_config, loglevel=loglevel)
         if self._diag:
-            self._method = _Etd34Diagonal(lin_op, nl_func, self.etd_config)
+            self._method = _Etd34Diagonal(lin_op, nl_func, etd_config, self.logger)
         else:
             if diagonalize:
-                self._method = _Etd34Diagonalized(lin_op, nl_func, etd_config)
+                self._method = _Etd34Diagonalized(lin_op, nl_func, etd_config, self.logger)
             else:
-                self._method = _Etd34NonDiagonal(lin_op, nl_func, self.etd_config)
+                self._method = _Etd34NonDiagonal(lin_op, nl_func, etd_config)
         self.__n1_init = False
         self._accept = False
 

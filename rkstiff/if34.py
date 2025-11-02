@@ -1,9 +1,10 @@
 """IF34: Integrating Factor 4(3) adaptive step solver"""
 
+import logging
 from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
-from rkstiff.solver import StiffSolverAS, SolverConfig
+from .solveras import SolverConfig, StiffSolverAS
 
 
 class _If34Diagonal:  # pylint: disable=too-few-public-methods
@@ -18,9 +19,16 @@ class _If34Diagonal:  # pylint: disable=too-few-public-methods
         Diagonal linear operator.
     nl_func : Callable[[np.ndarray], np.ndarray]
         Nonlinear function.
+    logger : logging.Logger, optional
+        Logger instance for this solver.
     """
 
-    def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray]) -> None:
+    def __init__(
+        self,
+        lin_op: np.ndarray,
+        nl_func: Callable[[np.ndarray], np.ndarray],
+        logger: logging.Logger = logging.getLogger(__name__),
+    ) -> None:
         """
         Initialize IF34 diagonal system strategy.
 
@@ -30,9 +38,12 @@ class _If34Diagonal:  # pylint: disable=too-few-public-methods
             Diagonal linear operator.
         nl_func : Callable[[np.ndarray], np.ndarray]
             Nonlinear function.
+        logger : logging.Logger, optional
+            Logger instance for this solver.
         """
         self.lin_op = lin_op
         self.nl_func = nl_func
+        self.logger = logger
 
         n = lin_op.shape[0]
         self._EL, self._EL2 = [np.zeros(n, dtype=np.complex128) for _ in range(2)]
@@ -124,7 +135,12 @@ class _If34Diagonalized(_If34Diagonal):
         Nonlinear function.
     """
 
-    def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray]) -> None:
+    def __init__(
+        self,
+        lin_op: np.ndarray,
+        nl_func: Callable[[np.ndarray], np.ndarray],
+        logger: logging.Logger = logging.getLogger(__name__),
+    ) -> None:
         """
         Initialize IF34 diagonalized system strategy.
 
@@ -134,8 +150,10 @@ class _If34Diagonalized(_If34Diagonal):
             Linear operator matrix.
         nl_func : Callable[[np.ndarray], np.ndarray]
             Nonlinear function.
+        logger : logging.Logger, optional
+            Logger instance for this solver.
         """
-        super().__init__(lin_op, nl_func)
+        super().__init__(lin_op, nl_func, logger)
         if len(lin_op.shape) == 1:
             raise ValueError("Cannot diagonalize a 1D system")
         lin_op_cond = np.linalg.cond(lin_op)
@@ -373,10 +391,10 @@ class IF34(StiffSolverAS):
         super().__init__(lin_op, nl_func, config=config, loglevel=loglevel)
         self._method = Union[_If34Diagonal, _If34Diagonalized, _If34NonDiagonal]
         if self._diag:
-            self._method = _If34Diagonal(lin_op, nl_func)
+            self._method = _If34Diagonal(lin_op, nl_func, self.logger)
         else:
             if diagonalize:
-                self._method = _If34Diagonalized(lin_op, nl_func)
+                self._method = _If34Diagonalized(lin_op, nl_func, self.logger)
             else:
                 self._method = _If34NonDiagonal(lin_op, nl_func)
         self.__n1_init = False

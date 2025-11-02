@@ -24,10 +24,11 @@ Krogstad, S. (2005).
 Journal of Computational Physics, 203(1), 72–88.
 """
 
+import logging
 from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
-from rkstiff.etd import ETDCS, ETDConfig, psi1, psi2, psi3
+from .etd import ETDCS, ETDConfig, psi1, psi2, psi3
 
 
 class _Etd4Diagonal:  # pylint: disable=too-few-public-methods
@@ -200,7 +201,12 @@ class _Etd4NonDiagonal:  # pylint: disable=too-few-public-methods
     quadrature for numerical stability.
     """
 
-    def __init__(self, lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray], etd_config: ETDConfig) -> None:
+    def __init__(
+        self,
+        lin_op: np.ndarray,
+        nl_func: Callable[[np.ndarray], np.ndarray],
+        etd_config: ETDConfig,
+    ) -> None:
         """
         Initialize ETD4 non-diagonal system strategy.
 

@@ -60,11 +60,11 @@ local error estimates derived from the third-order embedding.
 
 """
 
+import logging
 from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
-from rkstiff.etd import ETDAS, ETDConfig, psi1, psi2, psi3
-from rkstiff.solver import SolverConfig
+from .etd import ETDAS, ETDConfig, psi1, psi2, psi3, SolverConfig
 
 
 class _Etd35Diagonal:
@@ -105,6 +105,7 @@ class _Etd35Diagonal:
         lin_op: np.ndarray,
         nl_func: Callable[[np.ndarray], np.ndarray],
         etd_config: ETDConfig,
+        logger: logging.Logger = logging.getLogger(__name__),
     ) -> None:
         """
         Initialize ETD35 diagonal solver state.
@@ -117,10 +118,13 @@ class _Etd35Diagonal:
             Nonlinear function.
         etd_config : ETDConfig
             ETD configuration object.
+        logger : logging.Logger, optional
+            Logger instance for this solver.
         """
         self.lin_op = lin_op.astype(np.complex128, copy=False)
         self.nl_func = nl_func
         self.etd_config = etd_config
+        self.logger = logger
 
         n = lin_op.shape[0]
         self._EL14, self._EL12, self._EL34, self._EL = [np.zeros(n, dtype=np.complex128) for _ in range(4)]
@@ -386,6 +390,7 @@ class _Etd35Diagonalized(_Etd35Diagonal):
         lin_op: np.ndarray,
         nl_func: Callable[[np.ndarray], np.ndarray],
         etd_config: ETDConfig,
+        logger: logging.Logger = logging.getLogger(__name__),
     ) -> None:
         """
         Initialize diagonalized ETD35 solver.
@@ -398,8 +403,10 @@ class _Etd35Diagonalized(_Etd35Diagonal):
             Nonlinear function.
         etd_config : ETDConfig
             ETD configuration object.
+        logger : logging.Logger, optional
+            Logger instance for this solver.
         """
-        super().__init__(lin_op, nl_func, etd_config)
+        super().__init__(lin_op, nl_func, etd_config, logger)
         if len(lin_op.shape) == 1:
             raise ValueError("Cannot diagonalize a 1D system")
         lin_op_cond = np.linalg.cond(lin_op)
@@ -811,12 +818,12 @@ class ETD35(ETDAS):
             loglevel=loglevel,
         )
         if self._diag:
-            self._method = _Etd35Diagonal(lin_op, nl_func, self.etd_config)
+            self._method = _Etd35Diagonal(lin_op, nl_func, etd_config, self.logger)
         else:
             if diagonalize:
-                self._method = _Etd35Diagonalized(lin_op, nl_func, self.etd_config)
+                self._method = _Etd35Diagonalized(lin_op, nl_func, etd_config, self.logger)
             else:
-                self._method = _Etd35NonDiagonal(lin_op, nl_func, self.etd_config)
+                self._method = _Etd35NonDiagonal(lin_op, nl_func, etd_config)
         self._stages_init = False
         self._accept = False
 
