@@ -10,7 +10,7 @@ import numpy as np
 from .solver import BaseSolver
 
 
-class StiffSolverCS(BaseSolver):
+class BaseSolverCS(BaseSolver):
     """
     Base class for constant-step Runge-Kutta solvers for stiff systems.
 

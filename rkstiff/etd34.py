@@ -486,7 +486,7 @@ class ETD34(ETDAS):
     -----
     Configuration parameters for contour integration, adaptivity, and safety
     factors are inherited from :class:`rkstiff.etd.ETDAS` and
-    :class:`rkstiff.solver.StiffSolverAS`.
+    :class:`rkstiff.solver.BaseSolverAS`.
 
     Specifically:
 
@@ -496,7 +496,7 @@ class ETD34(ETDAS):
     - ``contour_points`` — number of contour quadrature points
     - ``contour_radius`` — radius for contour integration in the complex plane
 
-    - From **StiffSolverAS**:
+    - From **BaseSolverAS**:
 
     - ``epsilon``, ``incr_f``, ``decr_f`` — adaptive step control constants
     - ``safety_f`` — safety factor
@@ -541,7 +541,7 @@ class ETD34(ETDAS):
         -----
         The following parameters are inherited from parent classes:
         - From ETDAS: modecutoff, contour_points, contour_radius
-        - From StiffSolverAS: epsilon, incr_f, decr_f, safety_f, adapt_cutoff, and minh
+        - From BaseSolverAS: epsilon, incr_f, decr_f, safety_f, adapt_cutoff, and minh
         """
         super().__init__(lin_op, nl_func, config=config, etd_config=etd_config, loglevel=loglevel)
         if self._diag:

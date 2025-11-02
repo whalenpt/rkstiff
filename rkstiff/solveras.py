@@ -152,7 +152,7 @@ class SolverConfig:
         self._minh = float(value)
 
 
-class StiffSolverAS(BaseSolver):
+class BaseSolverAS(BaseSolver):
     """
     Base class for adaptive-step Runge-Kutta solvers for stiff systems.
 

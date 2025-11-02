@@ -2,10 +2,10 @@
 
 from typing import Callable, Literal, Union
 import numpy as np
-from .solveras import SolverConfig, StiffSolverAS
+from .solveras import SolverConfig, BaseSolverAS
 
 
-class IF45DP(StiffSolverAS):
+class IF45DP(BaseSolverAS):
     """
     Fifth-order Integrating Factor solver with adaptive stepping (Dormand-Prince).
 

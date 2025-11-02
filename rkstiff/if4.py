@@ -22,7 +22,7 @@ a consistent constant-step interface.
 from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
-from .solvercs import StiffSolverCS
+from .solvercs import BaseSolverCS
 
 
 class _IF4Diagonal:  # pylint: disable=R0903
@@ -179,7 +179,7 @@ class _IF4NonDiagonal:  # pylint: disable=R0903
         return self._k
 
 
-class IF4(StiffSolverCS):
+class IF4(BaseSolverCS):
     r"""
     Fourth-order Integrating Factor (IF4) constant-step solver.
 

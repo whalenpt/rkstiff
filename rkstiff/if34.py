@@ -4,7 +4,7 @@ import logging
 from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
-from .solveras import SolverConfig, StiffSolverAS
+from .solveras import SolverConfig, BaseSolverAS
 
 
 class _If34Diagonal:  # pylint: disable=too-few-public-methods
@@ -325,7 +325,7 @@ class _If34NonDiagonal:  # pylint: disable=too-few-public-methods
         return self._k, self._err
 
 
-class IF34(StiffSolverAS):
+class IF34(BaseSolverAS):
     """
     Fourth-order Integrating Factor solver with adaptive stepping.
 
@@ -359,7 +359,7 @@ class IF34(StiffSolverAS):
     Notes
     -----
     Adaptive stepping parameters (epsilon, safety factors, etc.) are
-    inherited from the StiffSolverAS base class via the config parameter.
+    inherited from the BaseSolverAS base class via the config parameter.
     """
 
     _method: Union[_If34Diagonal, _If34Diagonalized, _If34NonDiagonal]

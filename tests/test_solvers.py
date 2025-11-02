@@ -7,7 +7,7 @@ from rkstiff.if34 import IF34
 from rkstiff.if45dp import IF45DP
 from rkstiff.etd import ETDAS
 from rkstiff.if4 import IF4
-from rkstiff.solveras import StiffSolverAS, SolverConfig
+from rkstiff.solveras import BaseSolverAS, SolverConfig
 from rkstiff.etd import ETDConfig
 from testing_util import (
     allen_cahn_setup,
@@ -73,7 +73,7 @@ def test_abc_error():
         ETDAS(lin_op=None, nl_func=None)
     with pytest.raises(TypeError):
         # pylint: disable=abstract-class-instantiated
-        StiffSolverAS(lin_op=None, nl_func=None)
+        BaseSolverAS(lin_op=None, nl_func=None)
 
 
 def test_etd34_nondiag():

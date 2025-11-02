@@ -39,8 +39,8 @@ ETD methods are particularly efficient when
 
 from typing import Union, Literal, Callable
 import numpy as np
-from .solvercs import StiffSolverCS
-from .solveras import SolverConfig, StiffSolverAS
+from .solvercs import BaseSolverCS
+from .solveras import SolverConfig, BaseSolverAS
 
 
 class ETDConfig:
@@ -182,7 +182,7 @@ def psi3(z: np.ndarray) -> np.ndarray:
     return 6 * (np.exp(z) - 1 - z - z**2 / 2) / z**3
 
 
-class ETDAS(StiffSolverAS):
+class ETDAS(BaseSolverAS):
     r"""
     Adaptive-step Exponential Time-Differencing (ETD) Runge–Kutta solver.
 
@@ -226,7 +226,7 @@ class ETDAS(StiffSolverAS):
         self._h_coeff = None
 
 
-class ETDCS(StiffSolverCS):
+class ETDCS(BaseSolverCS):
     r"""
     Constant-step Exponential Time-Differencing (ETD) Runge–Kutta solver.
 
