@@ -1,7 +1,17 @@
-"""
-rkstiff.solveras
+r"""
+Base solver infrastructure for rkstiff adaptive step PDE solvers
+================================================================
 
-Provides base class for adaptive-step solvers
+Adaptive-step solver infrastructure for stiff time-dependent systems.
+
+This module defines the :class:`BaseSolverAS` abstract class and its
+associated :class:`SolverConfig`, which provide the foundation for
+adaptive time-stepping solvers such as ETD(3,5) and other embedded
+Runge–Kutta–type integrators.
+
+Adaptive solvers automatically adjust their time step to maintain
+a user-specified accuracy tolerance, based on local error estimates
+computed during integration.
 """
 
 from abc import abstractmethod
@@ -10,25 +20,51 @@ import numpy as np
 from .solver import BaseSolver
 
 
+# ======================================================================
+# Solver Configuration
+# ======================================================================
 class SolverConfig:
-    """
+    r"""
     Configuration parameters for adaptive-step stiff solvers.
+
+    Defines numerical tolerances and scaling factors that control
+    adaptive time step selection. Used by all adaptive solvers derived
+    from :class:`BaseSolverAS`.
 
     Parameters
     ----------
-    epsilon : float, optional
-        Relative error tolerance for adaptive stepping. Default is 1e-4.
-    incr_f : float, optional
-        Increment factor for adaptive step sizing (must be > 1.0). Default is 1.25.
-    decr_f : float, optional
-        Decrement factor for adaptive step sizing (must be < 1.0). Default is 0.85.
-    safety_f : float, optional
-        Safety factor for adaptive stepping (must be <= 1.0). Default is 0.8.
-    adapt_cutoff : float, optional
-        Cutoff threshold for adaptive step size computation (must be < 1.0). Default is 0.01.
-        Modes with relative magnitude below this threshold are ignored.
-    minh : float, optional
-        Minimum allowable step size. Default is 1e-16.
+    epsilon : float, default=1e-4
+        Relative error tolerance for adaptive stepping. Smaller values
+        yield higher accuracy but may reduce efficiency.
+    incr_f : float, default=1.25
+        Step-size increase factor applied after successful steps.
+        Must satisfy ``incr_f > 1.0``.
+    decr_f : float, default=0.85
+        Step-size reduction factor applied after rejected steps.
+        Must satisfy ``decr_f < 1.0``.
+    safety_f : float, default=0.8
+        Safety factor for damping overly aggressive changes in step size.
+        Must satisfy ``safety_f <= 1.0``.
+    adapt_cutoff : float, default=0.01
+        Relative magnitude threshold for excluding small modes when
+        computing adaptive step corrections.
+    minh : float, default=1e-16
+        Minimum allowable step size.
+
+    Raises
+    ------
+    ValueError
+        If any parameter violates its constraint.
+
+    Notes
+    -----
+    The combination of ``epsilon``, ``safety_f``, and ``adapt_cutoff``
+    primarily determines the balance between stability and adaptivity.
+    Typical recommended settings are:
+
+    .. code-block:: python
+
+        SolverConfig(epsilon=1e-5, safety_f=0.9, adapt_cutoff=0.001)
     """
 
     def __init__(
@@ -40,24 +76,7 @@ class SolverConfig:
         adapt_cutoff: float = 0.01,
         minh: float = 1e-16,
     ) -> None:
-        """
-        Initialize SolverConfig with validated parameters.
-
-        Parameters
-        ----------
-        epsilon : float, optional
-            Relative error tolerance for adaptive stepping.
-        incr_f : float, optional
-            Increment factor for adaptive step sizing.
-        decr_f : float, optional
-            Decrement factor for adaptive step sizing.
-        safety_f : float, optional
-            Safety factor for adaptive stepping.
-        adapt_cutoff : float, optional
-            Cutoff threshold for adaptive step size computation.
-        minh : float, optional
-            Minimum allowable step size.
-        """
+        """Initialize and validate adaptive solver configuration."""
         self._epsilon = None
         self._incr_f = None
         self._decr_f = None
@@ -65,7 +84,7 @@ class SolverConfig:
         self._adapt_cutoff = None
         self._minh = None
 
-        # Use setters for validation
+        # Use property setters for validation
         self.epsilon = epsilon
         self.incr_f = incr_f
         self.decr_f = decr_f
@@ -73,7 +92,9 @@ class SolverConfig:
         self.adapt_cutoff = adapt_cutoff
         self.minh = minh
 
-    # ---- epsilon ----
+    # ------------------------------------------------------------------
+    # Properties (documented for autodoc clarity)
+    # ------------------------------------------------------------------
     @property
     def epsilon(self) -> float:
         """Relative error tolerance for adaptive stepping."""
@@ -83,62 +104,57 @@ class SolverConfig:
     def epsilon(self, value: float) -> None:
         """Set relative error tolerance, must be positive."""
         if value <= 0:
-            raise ValueError("epsilon must be positive but is %s" % value)
+            raise ValueError(f"epsilon must be positive but is {value}")
         self._epsilon = float(value)
 
-    # ---- incr_f ----
     @property
     def incr_f(self) -> float:
-        """Increment factor for adaptive step sizing."""
+        """Increment factor for adaptive step sizing (must be > 1.0)."""
         return self._incr_f
 
     @incr_f.setter
     def incr_f(self, value: float) -> None:
         """Set increment factor, must be greater than 1.0."""
         if value <= 1.0:
-            raise ValueError("incr_f must be > 1.0 but is %s" % value)
+            raise ValueError(f"incr_f must be > 1.0 but is {value}")
         self._incr_f = float(value)
 
-    # ---- decr_f ----
     @property
     def decr_f(self) -> float:
-        """Decrement factor for adaptive step sizing."""
+        """Decrement factor for adaptive step sizing (must be < 1.0)."""
         return self._decr_f
 
     @decr_f.setter
     def decr_f(self, value: float) -> None:
         """Set decrement factor, must be less than 1.0."""
         if value >= 1.0:
-            raise ValueError("decr_f must be < 1.0 but is %s" % value)
+            raise ValueError(f"decr_f must be < 1.0 but is {value}")
         self._decr_f = float(value)
 
-    # ---- safety_f ----
     @property
     def safety_f(self) -> float:
-        """Safety factor for adaptive stepping."""
+        """Safety factor for adaptive stepping (must be ≤ 1.0)."""
         return self._safety_f
 
     @safety_f.setter
     def safety_f(self, value: float) -> None:
-        """Set safety factor, must be less than or equal to 1.0."""
+        """Set safety factor, must be ≤ 1.0."""
         if value > 1.0:
-            raise ValueError("safety_f must be <= 1.0 but is %s" % value)
+            raise ValueError(f"safety_f must be <= 1.0 but is {value}")
         self._safety_f = float(value)
 
-    # ---- adapt_cutoff ----
     @property
     def adapt_cutoff(self) -> float:
-        """Cutoff threshold for adaptive step size computation."""
+        """Cutoff threshold for ignoring small modes during adaptivity."""
         return self._adapt_cutoff
 
     @adapt_cutoff.setter
     def adapt_cutoff(self, value: float) -> None:
-        """Set adapt_cutoff, must be less than 1.0."""
+        """Set adaptivity cutoff, must be less than 1.0."""
         if value >= 1.0:
-            raise ValueError("adapt_cutoff must be < 1.0 but is %s" % value)
+            raise ValueError(f"adapt_cutoff must be < 1.0 but is {value}")
         self._adapt_cutoff = float(value)
 
-    # ---- minh ----
     @property
     def minh(self) -> float:
         """Minimum allowable step size."""
@@ -148,72 +164,100 @@ class SolverConfig:
     def minh(self, value: float) -> None:
         """Set minimum step size, must be positive."""
         if value <= 0:
-            raise ValueError("minh must be positive but is %s" % value)
+            raise ValueError(f"minh must be positive but is {value}")
         self._minh = float(value)
 
 
+# ======================================================================
+# Adaptive Solver Base Class
+# ======================================================================
 class BaseSolverAS(BaseSolver):
-    """
-    Base class for adaptive-step Runge-Kutta solvers for stiff systems.
+    r"""
+    Abstract base class for adaptive-step stiff solvers.
 
-    Solves systems of the form dU/dt = L*U + NL(U), where L is a linear
-    operator and NL is a nonlinear function. The solver automatically adjusts
-    the time step to maintain a specified error tolerance.
+    Provides an adaptive time-stepping framework for integrating
+    semi-linear systems of the form
+
+    .. math::
+
+            \frac{\partial \mathbf{U}}{\partial t}
+            = \mathcal{L}\mathbf{U}
+            + \mathcal{N}(\mathbf{U}),
+
+    where :math:`\mathcal{L}` is a (possibly stiff) linear operator
+    and :math:`\mathcal{N}` is a nonlinear function.
+
+    Subclasses must implement :meth:`_update_stages` (to perform the
+    embedded Runge–Kutta stage updates), :meth:`_reset` (to clear solver
+    state), and :meth:`_q` (to define the order of accuracy for step
+    size control).
 
     Parameters
     ----------
     lin_op : np.ndarray
-        Linear operator L. Can be 1D (diagonal) or 2D square matrix.
+        Linear operator :math:`\mathcal{L}` defining the stiff part of the system.
+        Can be either 1D (diagonal) or a full 2D matrix.
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function nl_func(U).
+        Nonlinear function :math:`\mathcal{N}(\mathbf{U})`.
     config : SolverConfig, optional
-        Configuration parameters for adaptive stepping.
-    loglevel : str or int, optional
-        Logging level. Can be:
-        - String: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
-        - Integer: logging.DEBUG, logging.INFO, etc.
-        - Default: 'WARNING'
+        Configuration object specifying tolerances and scaling factors
+        for adaptive step control.
+    loglevel : str or int, default='WARNING'
+        Logging level for runtime diagnostics.
 
     Attributes
     ----------
     config : SolverConfig
-        Configuration parameters for adaptive stepping.
+        Adaptive step configuration (tolerances and safety parameters).
     epsilon : float
-        Relative error tolerance.
-    incr_f : float
-        Increment factor for step size increases (> 1.0).
-    decr_f : float
-        Decrement factor for step size decreases (< 1.0).
-    safety_f : float
-        Safety factor for adaptive stepping (<= 1.0).
-    adapt_cutoff : float
-        Threshold for ignoring small modes (< 1.0).
+        Relative error tolerance (:attr:`config.epsilon`).
     minh : float
-        Minimum allowable step size.
+        Minimum allowable step size (:attr:`config.minh`).
+    _accept : bool
+        Flag indicating whether the most recent step was accepted.
 
     Raises
     ------
     ValueError
-        If lin_op is not 1D or 2D square, or if config parameters are invalid.
+        If ``lin_op`` has invalid dimensions or configuration parameters are inconsistent.
 
     Notes
     -----
-    Subclasses must implement _reset(), _update_stages(), and _q() methods.
+    Adaptive time-stepping uses local error control via embedded Runge–Kutta
+    pairs, dynamically adjusting :math:`h` such that
+
+    .. math::
+
+        \| \mathbf{e}_n \| \leq \varepsilon \, \| \mathbf{u}_n \|,
+
+    where :math:`\mathbf{e}_n` is the local truncation error and
+    :math:`\varepsilon` is the tolerance.
+
+    .. tip::
+       Implementations typically define `_update_stages()` to return both
+       a candidate solution and an error estimate, which are used to adjust
+       the next step size.
     """
 
+    # ------------------------------------------------------------------
+    # Internal exceptions
+    # ------------------------------------------------------------------
     class SolverError(RuntimeError):
-        """Base exception for solver failures."""
+        """Base exception for solver-related runtime errors."""
 
     class MaxLoopsExceeded(SolverError):
-        """Raised when adaptive step exceeds maximum allowed attempts."""
+        """Raised when too many attempts are made to find a valid adaptive step."""
 
     class MinimumStepReached(SolverError):
-        """Raised when step size reaches minimum allowed value."""
+        """Raised when the adaptive step size falls below the minimum allowed value."""
 
-    MAX_LOOPS = 50
-    MAX_S = 4.0  # Maximum step increase factor
-    MIN_S = 0.25  # Minimum step decrease factor
+    MAX_LOOPS = 50  #: Maximum retry attempts per adaptive step
+    MAX_S = 4.0  #: Maximum allowed step size increase factor
+    MIN_S = 0.25  #: Minimum allowed step size reduction factor
 
+    # ------------------------------------------------------------------
+    # Initialization
+    # ------------------------------------------------------------------
     def __init__(
         self,
         lin_op: np.ndarray,
@@ -221,30 +265,12 @@ class BaseSolverAS(BaseSolver):
         config: SolverConfig = SolverConfig(),
         loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ) -> None:
-        """
-        Initialize the adaptive-step solver.
-
-        Parameters
-        ----------
-        lin_op : np.ndarray
-            Linear operator. Must be 1D (diagonal) or 2D square matrix.
-        nl_func : Callable[[np.ndarray], np.ndarray]
-            Nonlinear function mapping state vector to nonlinear contribution.
-        config : SolverConfig, optional
-            Configuration with epsilon, incr_f, decr_f, safety_f, adapt_cutoff, minh.
-        loglevel : str or int, optional
-            Logging level. Default is 'WARNING'.
-
-        Raises
-        ------
-        ValueError
-            If lin_op has invalid dimensions or if config parameters violate constraints.
-        """
+        """Initialize an adaptive-step solver with validated configuration."""
         super().__init__(lin_op, nl_func, loglevel)
-
         self.config = config
+
         self.logger.debug(
-            "Config: epsilon=%s, incr_f=%s, decr_f=%s, safety_f=%s",
+            "Adaptive configuration: epsilon=%s, incr_f=%s, decr_f=%s, safety_f=%s",
             config.epsilon,
             config.incr_f,
             config.decr_f,
@@ -254,14 +280,12 @@ class BaseSolverAS(BaseSolver):
         self.__t0, self.__tf, self.__tc = 0, 0, 0
         self._accept = False
 
+    # ------------------------------------------------------------------
+    # Core Interface
+    # ------------------------------------------------------------------
     def reset(self) -> None:
-        """
-        Reset solver to initial state.
-
-        Clears stored time points and solution arrays. Prepares
-        solver for a new call to evolve() or step() with fresh initial conditions.
-        """
-        self.logger.debug("Resetting solver state")
+        """Reset solver and clear adaptive-step state."""
+        self.logger.debug("Resetting adaptive solver state")
         self.t, self.u = [], []
         self.__t0, self.__tf, self.__tc = 0, 0, 0
         self._accept = False
@@ -274,56 +298,63 @@ class BaseSolverAS(BaseSolver):
     @abstractmethod
     def _update_stages(self, u: np.ndarray, h: float) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Advance solution by one time step.
+        Advance the solution one adaptive step.
 
-        Must be implemented by subclasses to perform the RK stage updates.
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Current state vector.
-        h : float
-            Time step size.
+        Must be implemented by subclasses to compute both the candidate
+        next state and an estimate of the local truncation error.
 
         Returns
         -------
-        tuple[np.ndarray, np.ndarray]
-            Next state vector and local error estimate.
+        tuple of (np.ndarray, np.ndarray)
+            Updated solution and local error estimate.
         """
 
     @abstractmethod
     def _q(self):
-        """Return the order parameter q for step size computation."""
+        """Return the method’s order (used in adaptive step size scaling)."""
 
     def step(self, u: np.ndarray, h_suggest: float) -> Tuple[np.ndarray, float, float]:
         """
-        Propagate solution by one adaptive time step.
+        Perform one adaptive integration step.
 
-        Attempts to advance the solution using the suggested step size,
-        automatically reducing it if the error exceeds tolerance.
+        Attempts to advance the solution by time ``h_suggest`` and adjusts
+        the step size automatically based on local error estimates.
 
         Parameters
         ----------
         u : np.ndarray
             Current state vector.
         h_suggest : float
-            Suggested time step size (may be reduced to meet tolerance).
+            Suggested time step size.
 
         Returns
         -------
         unew : np.ndarray
-            Updated state vector after one accepted step.
+            Updated solution vector after one accepted step.
         h : float
-            Actual step size taken (may be less than h_suggest).
+            Actual step size used.
         h_suggest : float
-            Suggested step size for next step.
+            Suggested step size for the next iteration.
 
         Raises
         ------
         MaxLoopsExceeded
-            If too many attempts are needed to find an acceptable step size.
+            If too many attempts are made to find an acceptable step size.
         MinimumStepReached
-            If step size falls below minimum allowed value.
+            If the step size drops below the configured minimum ``minh``.
+
+        Notes
+        -----
+        The algorithm follows this pattern:
+
+        1. Try the proposed step.
+        2. Estimate local error and compute scaling factor ``s``.
+        3. If ``s < 1`` → reject step and reduce ``h``.
+        4. If ``s ≥ 1`` → accept step and update ``h_suggest`` for next step.
+
+        .. warning::
+           Very small or divergent ``s`` values may indicate instability
+           or excessively tight tolerances.
         """
         h = h_suggest
         assert h >= 0.0
@@ -359,20 +390,42 @@ class BaseSolverAS(BaseSolver):
                 raise self.MinimumStepReached(failure_str)
 
     def _compute_s(self, u: np.ndarray, err: np.ndarray) -> float:
-        """
-        Compute step size adjustment factor.
+        r"""
+        Compute the step size scaling factor :math:`s` for adaptive control.
+
+        The scaling factor determines how the next step size should be
+        adjusted based on the estimated local error:
+
+        .. math::
+
+            s = \text{safety\_f} \,
+                \left( \frac{\varepsilon \, \|\mathbf{u}\|}
+                            {\|\mathbf{e}\|} \right)^{1/q},
+
+        where :math:`\varepsilon` is the tolerance, :math:`\mathbf{u}` is
+        the current solution, :math:`\mathbf{e}` is the local error estimate,
+        and :math:`q` is the method order returned by :meth:`_q`.
+
+        To avoid instability from low-magnitude components, modes with
+        relative amplitudes below ``config.adapt_cutoff`` are ignored.
 
         Parameters
         ----------
         u : np.ndarray
-            Current state vector.
+            Current solution vector :math:`\mathbf{u}_n`.
         err : np.ndarray
-            Local error estimate.
+            Local error estimate :math:`\mathbf{e}_n`.
 
         Returns
         -------
         float
-            Step size adjustment factor s. Values > 1 indicate step acceptance.
+            Step size scaling factor :math:`s`.
+            - ``s > 1`` → step accepted (can increase step size)
+            - ``s < 1`` → step rejected (reduce step size)
+
+        Notes
+        -----
+        The new suggested step size is computed as :math:`h_{\text{new}} = s h`.
         """
         # Use adapt_cutoff to ignore small modes/values in the computation of the step size
         magu = np.abs(u)
@@ -382,20 +435,39 @@ class BaseSolverAS(BaseSolver):
         return s
 
     def _reject_step_size(self, s: float, h: float) -> float:
-        """
-        Compute reduced step size after rejection.
+        r"""
+        Reduce the time step after a rejected attempt.
+
+        Called when the estimated local error exceeds the tolerance.
+        The method scales the current step size :math:`h` by the factor
+        :math:`s`, clamped within stability limits.
+
+        .. math::
+
+            h_{\text{new}} = \max(s, s_{\min}) \;
+                            \min(s, \text{decr\_f}) \; h
 
         Parameters
         ----------
         s : float
-            Step size adjustment factor.
+            Step size scaling factor computed by :meth:`_compute_s`.
         h : float
-            Current step size.
+            Current step size before rejection.
 
         Returns
         -------
         float
-            New (reduced) step size.
+            Reduced step size for retrying the integration.
+
+        Notes
+        -----
+        - Enforces minimum allowed factor ``MIN_S`` to prevent collapse.
+        - Logs detailed information if ``s`` is NaN or infinite.
+        - Sets the acceptance flag ``_accept`` to ``False``.
+
+        .. warning::
+        Frequent rejections may indicate an unstable problem or
+        overly strict tolerance.
         """
         self._accept = False
         # Check that s is a number
@@ -414,20 +486,39 @@ class BaseSolverAS(BaseSolver):
         return hnew
 
     def _accept_step_size(self, s: float, h: float) -> float:
-        """
-        Compute suggested step size after acceptance.
+        r"""
+        Update the suggested step size after a successful integration step.
+
+        When the estimated local error is within tolerance,
+        the step is accepted, and the next step size is increased
+        according to the scaling factor :math:`s`.
+
+        .. math::
+
+            h_{\text{next}} =
+            \begin{cases}
+                \min(s, s_{\max}) \, h, & \text{if } s > \text{incr\_f} \\
+                h, & \text{otherwise.}
+            \end{cases}
 
         Parameters
         ----------
         s : float
-            Step size adjustment factor.
+            Step size scaling factor computed by :meth:`_compute_s`.
         h : float
-            Current step size.
+            Step size used for the accepted step.
 
         Returns
         -------
         float
-            Suggested step size for next step.
+            Suggested step size for the next step.
+
+        Notes
+        -----
+        - Sets the acceptance flag ``_accept`` to ``True``.
+        - Caps increases using ``MAX_S`` and ``config.incr_f`` to avoid
+        overly aggressive growth.
+        - Designed to ensure smooth variation of step size.
         """
         self._accept = True
         s = np.min([s, self.MAX_S])  # dont let s be too big
@@ -451,33 +542,46 @@ class BaseSolverAS(BaseSolver):
         store_data: bool = True,
         store_freq: int = 1,
     ) -> np.ndarray:
-        """
-        Evolve solution from initial to final time using adaptive stepping.
+        r"""
+        Integrate the system from :math:`t_0` to :math:`t_f` using adaptive time steps.
+
+        Repeatedly applies :meth:`step` to propagate the solution forward
+        while dynamically adjusting the time step size based on local
+        error estimates.
 
         Parameters
         ----------
         u : np.ndarray
-            Initial state vector at time t0.
+            Initial solution vector at :math:`t_0`.
         t0 : float
             Initial time.
         tf : float
             Final time.
         h_init : float, optional
-            Initial step size. Defaults to (tf - t0) / 100 if not specified.
+            Initial step size. Defaults to ``(tf - t0) / 100`` if not provided.
         store_data : bool, default=True
-            Whether to store intermediate time points and solutions in
-            self.t and self.u.
+            Whether to store intermediate results in :attr:`t` and :attr:`u`.
         store_freq : int, default=1
-            Store data every store_freq accepted steps.
+            Frequency of data storage; store every ``store_freq`` accepted steps.
 
         Returns
         -------
         np.ndarray
-            Final state vector at time tf.
+            Final solution at :math:`t = t_f`.
 
         Notes
         -----
-        Stored data is accessible via self.t (times) and self.u (states).
+
+        - The evolution proceeds until :math:`t \geq t_f`, automatically adjusting step sizes as needed.
+        - Stored data is accessible via :attr:`t` and :attr:`u`.
+        - Logs detailed progress every 100 steps.
+
+        Example
+        -------
+        >>> solver = ETD35(lin_op, nl_func)
+        >>> u_final = solver.evolve(u0, t0=0.0, tf=10.0)
+        >>> solver.t[-1], np.linalg.norm(solver.u[-1])
+        (10.0, 0.0134)
         """
         self.reset()
         self.logger.info("Starting evolution from t=%s to t=%s", t0, tf)
