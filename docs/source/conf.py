@@ -53,7 +53,7 @@ source_suffix = {
 master_doc = "index"
 
 templates_path = ["_templates"]
-html_static_path = []  # Remove _static since it doesn't exist yet
+html_static_path = []
 
 exclude_patterns = [
     "_build",
@@ -161,3 +161,23 @@ myst_heading_anchors = 3
 # -- Linkcheck ---------------------------------------------------------------
 linkcheck_timeout = 10
 linkcheck_ignore = [r"http://localhost"]
+
+
+# -- Hide built-in Exception members from rendered HTML ----------------------
+def skip_inherited_exception_members(app, what, name, obj, skip, options):
+    """Skip built-in Exception attributes from HTML autodoc output."""
+    if what == "exception" and name in {
+        "add_note",
+        "with_traceback",
+        "args",
+        "__init__",
+        "__cause__",
+        "__context__",
+        "__suppress_context__",
+        "__traceback__",
+    }:
+        return True
+    return skip
+
+def setup(app):
+    app.connect("autodoc-skip-member", skip_inherited_exception_members)

@@ -1,6 +1,6 @@
 r"""
-rkstiff.etd34
-=============
+Adaptive-Step Fourth Order (Third Order Embedding) Exponential Time-Differencing Integrator
+============================================================================================
 
 Implements the **Exponential Time Differencing (ETD)** 3/4 adaptive solver.
 
@@ -8,7 +8,9 @@ This solver integrates stiff systems of the form:
 
 .. math::
 
-    \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U})
+        \frac{\partial \mathbf{U}}{\partial t}
+        = \mathcal{L}\mathbf{U}
+        + \mathcal{N}(\mathbf{U})
 
 using an exponential Runge–Kutta method of order four with embedded
 third-order error estimation for adaptive step control.
@@ -18,7 +20,7 @@ from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
 from rkstiff.solver import SolverConfig
-from rkstiff.etd import ETDAS, ETDConfig, phi1, phi2, phi3
+from rkstiff.etd import ETDAS, ETDConfig, psi1, psi2, psi3
 
 
 class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
@@ -104,20 +106,20 @@ class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
         smallmode_idx = np.abs(z) < self.etd_config.modecutoff
         zb = z[~smallmode_idx]  # z big
         # compute big mode coeffs
-        phi1_12 = h * phi1(zb / 2)
-        phi2_12 = h * phi2(zb / 2)
-        phi1_1 = h * phi1(zb)
-        phi2_1 = h * phi2(zb)
-        phi3_1 = h * phi3(zb)
+        psi1_12 = h * psi1(zb / 2)
+        psi2_12 = h * psi2(zb / 2)
+        psi1_1 = h * psi1(zb)
+        psi2_1 = h * psi2(zb)
+        psi3_1 = h * psi3(zb)
 
-        self._a21[~smallmode_idx] = 0.5 * phi1_12
-        self._a31[~smallmode_idx] = 0.5 * (phi1_12 - phi2_12)
-        self._a32[~smallmode_idx] = 0.5 * phi2_12
-        self._a41[~smallmode_idx] = phi1_1 - phi2_1
-        self._a43[~smallmode_idx] = phi2_1
-        self._a51[~smallmode_idx] = phi1_1 - (3.0 / 2) * phi2_1 + (2.0 / 3) * phi3_1
-        self._a52[~smallmode_idx] = phi2_1 - (2.0 / 3) * phi3_1
-        self._a54[~smallmode_idx] = -(1.0 / 2) * phi2_1 + (2.0 / 3) * phi3_1
+        self._a21[~smallmode_idx] = 0.5 * psi1_12
+        self._a31[~smallmode_idx] = 0.5 * (psi1_12 - psi2_12)
+        self._a32[~smallmode_idx] = 0.5 * psi2_12
+        self._a41[~smallmode_idx] = psi1_1 - psi2_1
+        self._a43[~smallmode_idx] = psi2_1
+        self._a51[~smallmode_idx] = psi1_1 - (3.0 / 2) * psi2_1 + (2.0 / 3) * psi3_1
+        self._a52[~smallmode_idx] = psi2_1 - (2.0 / 3) * psi3_1
+        self._a54[~smallmode_idx] = -(1.0 / 2) * psi2_1 + (2.0 / 3) * psi3_1
 
         # compute small mode coeffs
         zs = z[smallmode_idx]  # z small
@@ -127,20 +129,20 @@ class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
         rr, zz = np.meshgrid(r, zs)
         Z = zz + rr
 
-        phi1_12 = h * np.sum(phi1(Z / 2), axis=1) / self.etd_config.contour_points
-        phi2_12 = h * np.sum(phi2(Z / 2), axis=1) / self.etd_config.contour_points
-        phi1_1 = h * np.sum(phi1(Z), axis=1) / self.etd_config.contour_points
-        phi2_1 = h * np.sum(phi2(Z), axis=1) / self.etd_config.contour_points
-        phi3_1 = h * np.sum(phi3(Z), axis=1) / self.etd_config.contour_points
+        psi1_12 = h * np.sum(psi1(Z / 2), axis=1) / self.etd_config.contour_points
+        psi2_12 = h * np.sum(psi2(Z / 2), axis=1) / self.etd_config.contour_points
+        psi1_1 = h * np.sum(psi1(Z), axis=1) / self.etd_config.contour_points
+        psi2_1 = h * np.sum(psi2(Z), axis=1) / self.etd_config.contour_points
+        psi3_1 = h * np.sum(psi3(Z), axis=1) / self.etd_config.contour_points
 
-        self._a21[smallmode_idx] = 0.5 * phi1_12
-        self._a31[smallmode_idx] = 0.5 * (phi1_12 - phi2_12)
-        self._a32[smallmode_idx] = 0.5 * phi2_12
-        self._a41[smallmode_idx] = phi1_1 - phi2_1
-        self._a43[smallmode_idx] = phi2_1
-        self._a51[smallmode_idx] = phi1_1 - (3.0 / 2) * phi2_1 + (2.0 / 3) * phi3_1
-        self._a52[smallmode_idx] = phi2_1 - (2.0 / 3) * phi3_1
-        self._a54[smallmode_idx] = -(1.0 / 2) * phi2_1 + (2.0 / 3) * phi3_1
+        self._a21[smallmode_idx] = 0.5 * psi1_12
+        self._a31[smallmode_idx] = 0.5 * (psi1_12 - psi2_12)
+        self._a32[smallmode_idx] = 0.5 * psi2_12
+        self._a41[smallmode_idx] = psi1_1 - psi2_1
+        self._a43[smallmode_idx] = psi2_1
+        self._a51[smallmode_idx] = psi1_1 - (3.0 / 2) * psi2_1 + (2.0 / 3) * psi3_1
+        self._a52[smallmode_idx] = psi2_1 - (2.0 / 3) * psi3_1
+        self._a54[smallmode_idx] = -(1.0 / 2) * psi2_1 + (2.0 / 3) * psi3_1
 
     def n1_init(self, u: np.ndarray) -> None:
         """
@@ -354,26 +356,26 @@ class _Etd34NonDiagonal:
             2j * np.pi * np.arange(0.5, self.etd_config.contour_points) / self.etd_config.contour_points
         )
 
-        phi1_12, phi2_12, phi1_1, phi2_1, phi3_1 = [
+        psi1_12, psi2_12, psi1_1, psi2_1, psi3_1 = [
             np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(5)
         ]
         for point in contour_points:
             Q = np.linalg.inv(point * np.eye(*self.lin_op.shape) - z)
             Q2 = np.linalg.inv(point * np.eye(*self.lin_op.shape) - z / 2)
-            phi1_12 += point * phi1(point) * Q2 / self.etd_config.contour_points
-            phi2_12 += point * phi2(point) * Q2 / self.etd_config.contour_points
-            phi1_1 += point * phi1(point) * Q / self.etd_config.contour_points
-            phi2_1 += point * phi2(point) * Q / self.etd_config.contour_points
-            phi3_1 += point * phi3(point) * Q / self.etd_config.contour_points
+            psi1_12 += point * psi1(point) * Q2 / self.etd_config.contour_points
+            psi2_12 += point * psi2(point) * Q2 / self.etd_config.contour_points
+            psi1_1 += point * psi1(point) * Q / self.etd_config.contour_points
+            psi2_1 += point * psi2(point) * Q / self.etd_config.contour_points
+            psi3_1 += point * psi3(point) * Q / self.etd_config.contour_points
 
-        self._a21 = 0.5 * h * phi1_12
-        self._a31 = 0.5 * h * (phi1_12 - phi2_12)
-        self._a32 = 0.5 * h * phi2_12
-        self._a41 = h * (phi1_1 - phi2_1)
-        self._a43 = h * phi2_1
-        self._a51 = h * (phi1_1 - (3.0 / 2) * phi2_1 + (2.0 / 3) * phi3_1)
-        self._a52 = h * (phi2_1 - (2.0 / 3) * phi3_1)
-        self._a54 = h * (-(1.0 / 2) * phi2_1 + (2.0 / 3) * phi3_1)
+        self._a21 = 0.5 * h * psi1_12
+        self._a31 = 0.5 * h * (psi1_12 - psi2_12)
+        self._a32 = 0.5 * h * psi2_12
+        self._a41 = h * (psi1_1 - psi2_1)
+        self._a43 = h * psi2_1
+        self._a51 = h * (psi1_1 - (3.0 / 2) * psi2_1 + (2.0 / 3) * psi3_1)
+        self._a52 = h * (psi2_1 - (2.0 / 3) * psi3_1)
+        self._a54 = h * (-(1.0 / 2) * psi2_1 + (2.0 / 3) * psi3_1)
 
     def n1_init(self, u: np.ndarray) -> None:
         """
@@ -433,16 +435,18 @@ class ETD34(ETDAS):
 
     .. math::
 
-        \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}),
+            \frac{\partial \mathbf{U}}{\partial t}
+            = \mathcal{L}\mathbf{U}
+            + \mathcal{N}(\mathbf{U}),
 
-    where :math:`\mathbf{L}` is the linear operator and :math:`\mathbf{N}(\mathbf{U})`
+    where :math:`\mathcal{L}` is the linear operator and :math:`\mathcal{N}(\mathbf{U})`
     is the nonlinear function.
 
     Parameters
     ----------
     lin_op : np.ndarray
-        Linear operator :math:`\mathbf{L}` in the system
-        :math:`\dot{\mathbf{U}} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U})`.
+        Linear operator :math:`\mathcal{L}` in the system
+        :math:`\dot{\mathbf{U}} = \mathcal{L}\mathbf{U} + \mathcal{N}(\mathbf{U})`.
 
         Can be one of the following:
 
@@ -451,7 +455,7 @@ class ETD34(ETDAS):
 
         Both real-valued and complex-valued operators are supported.
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
+        Nonlinear function :math:`\mathcal{N}(\mathbf{U})`.
     config : SolverConfig, optional
         General solver configuration controlling adaptivity thresholds,
         safety factors, and other integration parameters.
@@ -459,7 +463,7 @@ class ETD34(ETDAS):
         Configuration for ETD-specific parameters such as contour integration
         settings and spectral radius estimation.
     diagonalize : bool, optional
-        If ``True``, the solver diagonalizes the linear operator :math:`\mathbf{L}`
+        If ``True``, the solver diagonalizes the linear operator :math:`\mathcal{L}`
         before integration. This can improve performance for some sparse systems.
     loglevel : Union[str, int], optional
         Logging level.
@@ -480,8 +484,8 @@ class ETD34(ETDAS):
 
     - From **StiffSolverAS**:
 
-    - ``epsilon``, ``incrF``, ``decrF`` — adaptive step control constants
-    - ``safetyF`` — safety factor
+    - ``epsilon``, ``incr_f``, ``decr_f`` — adaptive step control constants
+    - ``safety_f`` — safety factor
     - ``adapt_cutoff``, ``minh`` — adaptive and minimum step limits
     """
 
@@ -523,7 +527,7 @@ class ETD34(ETDAS):
         -----
         The following parameters are inherited from parent classes:
         - From ETDAS: modecutoff, contour_points, contour_radius
-        - From StiffSolverAS: epsilon, incrF, decrF, safetyF, adapt_cutoff, and minh
+        - From StiffSolverAS: epsilon, incr_f, decr_f, safety_f, adapt_cutoff, and minh
         """
         super().__init__(lin_op, nl_func, config=config, etd_config=etd_config, loglevel=loglevel)
         if self._diag:

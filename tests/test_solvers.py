@@ -39,7 +39,7 @@ def test_bad_solver_config():
     # Test that negative epsilon raises ValueError
     with pytest.raises(ValueError):
         SolverConfig(epsilon=-1e-6)
-    # Test that invalid safetyFactor raises ValueError
+    # Test that invalid safety_factor raises ValueError
     with pytest.raises(ValueError):
         SolverConfig(safety_f=1.2)
     # Test that invalid adapt_cutoff raises ValueError

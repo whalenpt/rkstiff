@@ -1,77 +1,103 @@
 r"""
-rkstiff.etd35
-=============
+Adaptive-Step Fifth Order (Third Order Embedding) Exponential Time-Differencing Integrator
+==========================================================================================
 
-Implements the **ETD(3,5)** exponential time-differencing integrator with
-adaptive step control.
+**Exponential Time-Differencing Runge-Kutta Integrator (ETD(3,5))**
 
-This solver advances stiff systems of ODEs of the form
+Implements the **ETD(3,5)** exponential time-differencing scheme with
+embedded third-order error estimation and adaptive step control
+as described in:
+
+    Whalen, P., Brio, M., & Moloney, J. V. (2015).
+    *Exponential time-differencing with embedded Runge-Kutta adaptive step control.*
+    *Journal of Computational Physics*, 280, 579-601.
+    doi:[10.1016/j.jcp.2014.09.024](https://doi.org/10.1016/j.jcp.2014.09.024)
+
+---
+
+**Mathematical Formulation**
+
+This solver integrates stiff systems of ODEs or semidiscretized PDEs
+of the form
 
 .. math::
 
-    \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}),
+    \frac{\partial \mathbf{U}}{\partial t}
+        = \mathcal{L}\mathbf{U}
+        + \mathcal{N}(\mathbf{U}),
 
-where :math:`\mathbf{L}` is linear and :math:`\mathbf{N}(\mathbf{U})` is nonlinear.
+where :math:`\mathcal{L}` is the linear (possibly stiff) operator and
+:math:`\mathcal{N}` is a nonlinear term evaluated explicitly.
+
+The ETD(3,5) scheme uses exponential Runge–Kutta stages built from
+the *ψ-functions*:
+
+.. math::
+
+    \psi_r(z)
+      = r \int_0^1 e^{(1-\theta)z}\,\theta^{r-1}\,d\theta,
+      \quad r = 1,2,3,\dots
+
+which serve as scaled exponential integrators analogous to the
+:math:`\phi_r` functions in classical ETD formulations
+(:math:`\psi_r = r!\,\phi_r`).
+
+---
+
+**Implementation Overview**
+
+The module provides specialized strategies for different forms of
+the linear operator :math:`\mathcal{L}`:
+
+- :class:`_Etd35Diagonal` — diagonal systems (elementwise exponentials)
+- :class:`_Etd35Diagonalized` — eigen-decomposed systems
+- :class:`_Etd35NonDiagonal` — full matrix exponential evaluation
+- :class:`ETD35` — high-level adaptive solver interface
+
+Adaptive step control follows the embedded-order algorithm of
+Whalen et al. (2015), balancing efficiency and accuracy through
+local error estimates derived from the third-order embedding.
+
 """
 
 from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
-from rkstiff.etd import ETDAS, ETDConfig, phi1, phi2, phi3
+from rkstiff.etd import ETDAS, ETDConfig, psi1, psi2, psi3
 from rkstiff.solver import SolverConfig
 
 
 class _Etd35Diagonal:
     r"""
-    ETD35 diagonal system strategy for ETD35 solver.
+    ETD(3, 5) diagonal formulation.
 
-    Implements the ETD(3,5) method for diagonal linear operators.
-
-    Given a diagonal linear operator :math:`\mathbf{L}` and nonlinear function
-    :math:`\mathbf{N}(\mathbf{U})`, this method integrates systems of the form
+    Integrates
 
     .. math::
 
-        \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}).
+        \frac{\partial \mathbf{U}}{\partial t}
+            = \mathcal{L}\mathbf{U}
+            + \mathcal{N}(\mathbf{U}),
 
-    Parameters
-    ----------
-    lin_op : np.ndarray
-        1D array representing the diagonal entries of :math:`\mathbf{L}`.
-    nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
-    etd_config : ETDConfig
-        Configuration object containing ``modecutoff``, ``contour_points``,
-        and ``contour_radius``.
+    for diagonal :math:`\mathcal{L}` using scalar exponential updates.
+    All matrix exponentials reduce to elementwise factors
+    :math:`e^{h\lambda_i}`.
 
     Notes
     -----
-    The ETD(3,5) scheme advances the solution via exponential Runge–Kutta stages
-    using precomputed coefficients based on the functions:
+    The stage coefficients are built from *psi-functions*:
 
     .. math::
 
-        \phi_k(z) = \frac{1}{(k-1)!} \int_0^1 e^{(1-\theta)z}\theta^{k-1} \, d\theta,
+        \psi_k(z)
+        = \frac{1}{(k-1)!}\!\int_0^1 e^{(1-\theta)z}\,\theta^{k-1}\,d\theta,
+        \qquad k = 1,2,3,
 
-    which appear in matrix exponential integrators.
+    which relate to the *phi-functions* often used in exponential integrators
+    via :math:`\phi_k = k!\,\psi_k`.
 
-    The update equations use a combination of intermediate exponentials:
-
-    .. math::
-
-        e^{z/4}, \; e^{z/2}, \; e^{3z/4}, \; e^{z},
-
-    and corresponding Runge–Kutta coefficients :math:`a_{ij}` derived from
-    :math:`\phi_1`, :math:`\phi_2`, and :math:`\phi_3`.
-
-    Small modes (where :math:`|z| < \text{modecutoff}`) are computed using
-    contour quadrature to maintain stability:
-
-    .. math::
-
-        \phi_k(z) \approx \frac{1}{N_p}\sum_{m=1}^{N_p} \phi_k(z + r_m),
-
-    where :math:`r_m = R e^{2\pi i (m-1/2)/N_p}` are contour nodes.
+    For small arguments :math:`|z|<\varepsilon`, contour integration is used,
+    and for larger modes exact exponentials are applied.
     """
 
     def __init__(
@@ -178,33 +204,33 @@ class _Etd35Diagonal:
 
         zb = z[idx]  # z big - extract large modes
 
-        # Compute phi functions for large modes
-        phi1_14, phi2_14 = h * phi1(zb / 4), h * phi2(zb / 4)
-        phi1_12, phi2_12 = h * phi1(zb / 2), h * phi2(zb / 2)
-        phi1_34, phi2_34 = h * phi1(3 * zb / 4), h * phi2(3 * zb / 4)
-        phi1_1, phi2_1, phi3_1 = h * phi1(zb), h * phi2(zb), h * phi3(zb)
+        # Compute psi functions for large modes
+        psi1_14, psi2_14 = h * psi1(zb / 4), h * psi2(zb / 4)
+        psi1_12, psi2_12 = h * psi1(zb / 2), h * psi2(zb / 2)
+        psi1_34, psi2_34 = h * psi1(3 * zb / 4), h * psi2(3 * zb / 4)
+        psi1_1, psi2_1, psi3_1 = h * psi1(zb), h * psi2(zb), h * psi3(zb)
 
         # Assign directly to the indexed locations
-        # phi1_14 etc. are already filtered, so we assign to self._a21[idx]
+        # psi1_14 etc. are already filtered, so we assign to self._a21[idx]
 
-        self._a21[idx] = phi1_14 / 4.0
-        self._a31[idx] = (phi1_14 - phi2_14 / 2.0) / 4.0
-        self._a32[idx] = phi2_14 / 8.0
-        self._a41[idx] = (phi1_12 - phi2_12) / 2.0
-        self._a43[idx] = phi2_12 / 2.0
-        self._a51[idx] = 3.0 * (phi1_34 - 3.0 * phi2_34 / 4.0) / 4.0
-        self._a52[idx] = -3 * phi1_34 / 8.0
-        self._a54[idx] = 9 * phi2_34 / 16.0
-        self._a61[idx] = (-77 * phi1_1 + 59 * phi2_1) / 42.0
-        self._a62[idx] = 8 * phi1_1 / 7.0
-        self._a63[idx] = (111 * phi1_1 - 87 * phi2_1) / 28.0
-        self._a65[idx] = (-47 * phi1_1 + 143 * phi2_1) / 84.0
-        self._a71[idx] = 7 * (257 * phi1_1 - 497 * phi2_1 + 270 * phi3_1) / 2700
-        # Paper has error in a73/b3 phi2 coefficient (states this is 497 but it is actually 467)
-        self._a73[idx] = (1097 * phi1_1 - 467 * phi2_1 - 150 * phi3_1) / 1350
-        self._a74[idx] = 2 * (-49 * phi1_1 + 199 * phi2_1 - 135 * phi3_1) / 225
-        self._a75[idx] = (-313 * phi1_1 + 883 * phi2_1 - 90 * phi3_1) / 1350
-        self._a76[idx] = (509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1) / 2700
+        self._a21[idx] = psi1_14 / 4.0
+        self._a31[idx] = (psi1_14 - psi2_14 / 2.0) / 4.0
+        self._a32[idx] = psi2_14 / 8.0
+        self._a41[idx] = (psi1_12 - psi2_12) / 2.0
+        self._a43[idx] = psi2_12 / 2.0
+        self._a51[idx] = 3.0 * (psi1_34 - 3.0 * psi2_34 / 4.0) / 4.0
+        self._a52[idx] = -3 * psi1_34 / 8.0
+        self._a54[idx] = 9 * psi2_34 / 16.0
+        self._a61[idx] = (-77 * psi1_1 + 59 * psi2_1) / 42.0
+        self._a62[idx] = 8 * psi1_1 / 7.0
+        self._a63[idx] = (111 * psi1_1 - 87 * psi2_1) / 28.0
+        self._a65[idx] = (-47 * psi1_1 + 143 * psi2_1) / 84.0
+        self._a71[idx] = 7 * (257 * psi1_1 - 497 * psi2_1 + 270 * psi3_1) / 2700
+        # Paper has error in a73/b3 psi2 coefficient (states this is 497 but it is actually 467)
+        self._a73[idx] = (1097 * psi1_1 - 467 * psi2_1 - 150 * psi3_1) / 1350
+        self._a74[idx] = 2 * (-49 * psi1_1 + 199 * psi2_1 - 135 * psi3_1) / 225
+        self._a75[idx] = (-313 * psi1_1 + 883 * psi2_1 - 90 * psi3_1) / 1350
+        self._a76[idx] = (509 * psi1_1 - 2129 * psi2_1 + 1830 * psi3_1) / 2700
 
     def _update_small_mode_coeffs(  # pylint: disable=too-many-locals
         self, h: float, z: np.ndarray, smallmode_idx: np.ndarray
@@ -233,29 +259,29 @@ class _Etd35Diagonal:
         def avg_phi(func, factor=1):
             return h * np.sum(func(factor * Z), axis=1) / npts
 
-        phi1_14, phi2_14 = avg_phi(phi1, 1 / 4), avg_phi(phi2, 1 / 4)
-        phi1_12, phi2_12 = avg_phi(phi1, 1 / 2), avg_phi(phi2, 1 / 2)
-        phi1_34, phi2_34 = avg_phi(phi1, 3 / 4), avg_phi(phi2, 3 / 4)
-        phi1_1, phi2_1, phi3_1 = avg_phi(phi1), avg_phi(phi2), avg_phi(phi3)
+        psi1_14, psi2_14 = avg_phi(psi1, 1 / 4), avg_phi(psi2, 1 / 4)
+        psi1_12, psi2_12 = avg_phi(psi1, 1 / 2), avg_phi(psi2, 1 / 2)
+        psi1_34, psi2_34 = avg_phi(psi1, 3 / 4), avg_phi(psi2, 3 / 4)
+        psi1_1, psi2_1, psi3_1 = avg_phi(psi1), avg_phi(psi2), avg_phi(psi3)
 
         idx = smallmode_idx
-        self._a21[idx] = phi1_14 / 4.0
-        self._a31[idx] = (phi1_14 - phi2_14 / 2.0) / 4.0
-        self._a32[idx] = phi2_14 / 8.0
-        self._a41[idx] = (phi1_12 - phi2_12) / 2.0
-        self._a43[idx] = phi2_12 / 2.0
-        self._a51[idx] = 3.0 * (phi1_34 - 3.0 * phi2_34 / 4.0) / 4.0
-        self._a52[idx] = -3 * phi1_34 / 8.0
-        self._a54[idx] = 9 * phi2_34 / 16.0
-        self._a61[idx] = (-77 * phi1_1 + 59 * phi2_1) / 42.0
-        self._a62[idx] = 8 * phi1_1 / 7.0
-        self._a63[idx] = (111 * phi1_1 - 87 * phi2_1) / 28.0
-        self._a65[idx] = (-47 * phi1_1 + 143 * phi2_1) / 84.0
-        self._a71[idx] = 7 * (257 * phi1_1 - 497 * phi2_1 + 270 * phi3_1) / 2700
-        self._a73[idx] = (1097 * phi1_1 - 467 * phi2_1 - 150 * phi3_1) / 1350
-        self._a74[idx] = 2 * (-49 * phi1_1 + 199 * phi2_1 - 135 * phi3_1) / 225
-        self._a75[idx] = (-313 * phi1_1 + 883 * phi2_1 - 90 * phi3_1) / 1350
-        self._a76[idx] = (509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1) / 2700
+        self._a21[idx] = psi1_14 / 4.0
+        self._a31[idx] = (psi1_14 - psi2_14 / 2.0) / 4.0
+        self._a32[idx] = psi2_14 / 8.0
+        self._a41[idx] = (psi1_12 - psi2_12) / 2.0
+        self._a43[idx] = psi2_12 / 2.0
+        self._a51[idx] = 3.0 * (psi1_34 - 3.0 * psi2_34 / 4.0) / 4.0
+        self._a52[idx] = -3 * psi1_34 / 8.0
+        self._a54[idx] = 9 * psi2_34 / 16.0
+        self._a61[idx] = (-77 * psi1_1 + 59 * psi2_1) / 42.0
+        self._a62[idx] = 8 * psi1_1 / 7.0
+        self._a63[idx] = (111 * psi1_1 - 87 * psi2_1) / 28.0
+        self._a65[idx] = (-47 * psi1_1 + 143 * psi2_1) / 84.0
+        self._a71[idx] = 7 * (257 * psi1_1 - 497 * psi2_1 + 270 * psi3_1) / 2700
+        self._a73[idx] = (1097 * psi1_1 - 467 * psi2_1 - 150 * psi3_1) / 1350
+        self._a74[idx] = 2 * (-49 * psi1_1 + 199 * psi2_1 - 135 * psi3_1) / 225
+        self._a75[idx] = (-313 * psi1_1 + 883 * psi2_1 - 90 * psi3_1) / 1350
+        self._a76[idx] = (509 * psi1_1 - 2129 * psi2_1 + 1830 * psi3_1) / 2700
 
     def new_step_init(self, u: np.ndarray) -> None:
         """
@@ -319,11 +345,11 @@ class _Etd35Diagonalized(_Etd35Diagonal):
     r"""
     ETD35 solver for non-diagonal systems via eigenvector diagonalization.
 
-    Diagonalizes the full matrix :math:`\mathbf{L}` using eigen-decomposition:
+    Diagonalizes the full matrix :math:`\mathcal{L}` using eigen-decomposition:
 
     .. math::
 
-        \mathbf{L} = \mathbf{S} \, \mathbf{\Lambda} \, \mathbf{S}^{-1},
+        \mathcal{L} = \mathbf{S} \, \mathbf{\Lambda} \, \mathbf{S}^{-1},
 
     and performs all ETD(3,5) computations in the diagonal basis of
     :math:`\mathbf{\Lambda}`.
@@ -331,9 +357,9 @@ class _Etd35Diagonalized(_Etd35Diagonal):
     Parameters
     ----------
     lin_op : np.ndarray
-        Full (square) matrix linear operator :math:`\mathbf{L}`.
+        Full (square) matrix linear operator :math:`\mathcal{L}`.
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
+        Nonlinear function :math:`\mathcal{N}(\mathbf{U})`.
     etd_config : ETDConfig
         ETD configuration object controlling spectral radius and contour settings.
 
@@ -345,10 +371,10 @@ class _Etd35Diagonalized(_Etd35Diagonal):
 
         \mathbf{v} = \mathbf{S}^{-1}\mathbf{U}, \qquad
         \frac{d\mathbf{v}}{dt} = \mathbf{\Lambda}\mathbf{v}
-            + \mathbf{S}^{-1}\mathbf{N}(\mathbf{S}\mathbf{v}).
+            + \mathbf{S}^{-1}\mathcal{N}(\mathbf{S}\mathbf{v}).
 
     The ETD(3,5) coefficients are then computed elementwise in the diagonal
-    eigenvalue space using the same :math:`\phi_k`-based update rules as
+    eigenvalue space using the same :math:`\psi_k`-based update rules as
     the purely diagonal solver.
 
     Numerical stability requires the condition number of :math:`\mathbf{S}` to
@@ -465,14 +491,14 @@ class _Etd35NonDiagonal:
     ETD35 solver for full (non-diagonal, non-diagonalizable) linear operators.
 
     Implements the ETD(3,5) exponential time-differencing scheme directly
-    using matrix exponentials and contour-integrated :math:`\phi` functions.
+    using matrix exponentials and contour-integrated :math:`\psi` functions.
 
     Parameters
     ----------
     lin_op : np.ndarray
-        Full matrix linear operator :math:`\mathbf{L}`.
+        Full matrix linear operator :math:`\mathcal{L}`.
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
+        Nonlinear function :math:`\mathcal{N}(\mathbf{U})`.
     etd_config : ETDConfig
         ETD configuration object (controls contour integration settings).
 
@@ -482,18 +508,18 @@ class _Etd35NonDiagonal:
 
     .. math::
 
-        \phi_k(\mathbf{Z}) =
+        \psi_k(\mathbf{Z}) =
             \frac{1}{(k-1)!} \int_0^1 e^{(1-\theta)\mathbf{Z}} \theta^{k-1}\,d\theta,
 
-    where :math:`\mathbf{Z} = h\mathbf{L}`.
+    where :math:`\mathbf{Z} = h\mathcal{L}`.
 
     To avoid ill-conditioning when :math:`\mathbf{Z}` has small eigenvalues,
     the integral is approximated by a complex contour average:
 
     .. math::
 
-        \phi_k(\mathbf{Z}) \approx \frac{1}{N_p}\sum_{m=1}^{N_p}
-            \phi_k(r_m)\,(\,r_m\mathbf{I} - \mathbf{Z}\,)^{-1},
+        \psi_k(\mathbf{Z}) \approx \frac{1}{N_p}\sum_{m=1}^{N_p}
+            \psi_k(r_m)\,(\,r_m\mathbf{I} - \mathbf{Z}\,)^{-1},
 
     where :math:`r_m = R e^{2\pi i (m-1/2)/N_p}`.
 
@@ -503,10 +529,10 @@ class _Etd35NonDiagonal:
 
         \mathbf{k}_{i+1} =
             e^{c_i\mathbf{Z}}\mathbf{u}_n +
-            \sum_j a_{ij}\,\mathbf{N}(\mathbf{k}_j),
+            \sum_j a_{ij}\,\mathcal{N}(\mathbf{k}_j),
 
     where :math:`a_{ij}` are constructed from combinations of
-    :math:`\phi_1`, :math:`\phi_2`, and :math:`\phi_3`.
+    :math:`\psi_1`, :math:`\psi_2`, and :math:`\psi_3`.
 
     This direct matrix form is slower but numerically robust for
     moderate-size dense systems where diagonalization is not feasible.
@@ -584,43 +610,43 @@ class _Etd35NonDiagonal:
         contour_points = self.etd_config.contour_radius * np.exp(
             2j * np.pi * np.arange(0.5, self.etd_config.contour_points) / self.etd_config.contour_points
         )
-        phi1_14, phi2_14, phi1_12, phi2_12, phi1_34, phi2_34 = [
+        psi1_14, psi2_14, psi1_12, psi2_12, psi1_34, psi2_34 = [
             np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(6)
         ]
-        phi1_1, phi2_1, phi3_1 = [np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(3)]
+        psi1_1, psi2_1, psi3_1 = [np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(3)]
 
         for point in contour_points:
             Q14 = np.linalg.inv(point * np.eye(*self.lin_op.shape) - z / 4.0)
             Q12 = np.linalg.inv(point * np.eye(*self.lin_op.shape) - z / 2.0)
             Q34 = np.linalg.inv(point * np.eye(*self.lin_op.shape) - 3 * z / 4.0)
             Q = np.linalg.inv(point * np.eye(*self.lin_op.shape) - z)
-            phi1_14 += point * phi1(point) * Q14 / self.etd_config.contour_points
-            phi2_14 += point * phi2(point) * Q14 / self.etd_config.contour_points
-            phi1_12 += point * phi1(point) * Q12 / self.etd_config.contour_points
-            phi2_12 += point * phi2(point) * Q12 / self.etd_config.contour_points
-            phi1_34 += point * phi1(point) * Q34 / self.etd_config.contour_points
-            phi2_34 += point * phi2(point) * Q34 / self.etd_config.contour_points
-            phi1_1 += point * phi1(point) * Q / self.etd_config.contour_points
-            phi2_1 += point * phi2(point) * Q / self.etd_config.contour_points
-            phi3_1 += point * phi3(point) * Q / self.etd_config.contour_points
+            psi1_14 += point * psi1(point) * Q14 / self.etd_config.contour_points
+            psi2_14 += point * psi2(point) * Q14 / self.etd_config.contour_points
+            psi1_12 += point * psi1(point) * Q12 / self.etd_config.contour_points
+            psi2_12 += point * psi2(point) * Q12 / self.etd_config.contour_points
+            psi1_34 += point * psi1(point) * Q34 / self.etd_config.contour_points
+            psi2_34 += point * psi2(point) * Q34 / self.etd_config.contour_points
+            psi1_1 += point * psi1(point) * Q / self.etd_config.contour_points
+            psi2_1 += point * psi2(point) * Q / self.etd_config.contour_points
+            psi3_1 += point * psi3(point) * Q / self.etd_config.contour_points
 
-        self._a21 = h * phi1_14 / 4.0
-        self._a31 = h * (phi1_14 - phi2_14 / 2.0) / 4.0
-        self._a32 = h * phi2_14 / 8.0
-        self._a41 = h * (phi1_12 - phi2_12) / 2.0
-        self._a43 = h * phi2_12 / 2.0
-        self._a51 = h * 3.0 * (phi1_34 - 3.0 * phi2_34 / 4.0) / 4.0
-        self._a52 = -3 * h * phi1_34 / 8.0
-        self._a54 = h * 9 * phi2_34 / 16.0
-        self._a61 = h * (-77 * phi1_1 + 59 * phi2_1) / 42.0
-        self._a62 = h * 8 * phi1_1 / 7.0
-        self._a63 = h * (111 * phi1_1 - 87 * phi2_1) / 28.0
-        self._a65 = h * (-47 * phi1_1 + 143 * phi2_1) / 84.0
-        self._a71 = h * 7 * (257 * phi1_1 - 497 * phi2_1 + 270 * phi3_1) / 2700
-        self._a73 = h * (1097 * phi1_1 - 467 * phi2_1 - 150 * phi3_1) / 1350
-        self._a74 = h * 2 * (-49 * phi1_1 + 199 * phi2_1 - 135 * phi3_1) / 225
-        self._a75 = h * (-313 * phi1_1 + 883 * phi2_1 - 90 * phi3_1) / 1350
-        self._a76 = h * (509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1) / 2700
+        self._a21 = h * psi1_14 / 4.0
+        self._a31 = h * (psi1_14 - psi2_14 / 2.0) / 4.0
+        self._a32 = h * psi2_14 / 8.0
+        self._a41 = h * (psi1_12 - psi2_12) / 2.0
+        self._a43 = h * psi2_12 / 2.0
+        self._a51 = h * 3.0 * (psi1_34 - 3.0 * psi2_34 / 4.0) / 4.0
+        self._a52 = -3 * h * psi1_34 / 8.0
+        self._a54 = h * 9 * psi2_34 / 16.0
+        self._a61 = h * (-77 * psi1_1 + 59 * psi2_1) / 42.0
+        self._a62 = h * 8 * psi1_1 / 7.0
+        self._a63 = h * (111 * psi1_1 - 87 * psi2_1) / 28.0
+        self._a65 = h * (-47 * psi1_1 + 143 * psi2_1) / 84.0
+        self._a71 = h * 7 * (257 * psi1_1 - 497 * psi2_1 + 270 * psi3_1) / 2700
+        self._a73 = h * (1097 * psi1_1 - 467 * psi2_1 - 150 * psi3_1) / 1350
+        self._a74 = h * 2 * (-49 * psi1_1 + 199 * psi2_1 - 135 * psi3_1) / 225
+        self._a75 = h * (-313 * psi1_1 + 883 * psi2_1 - 90 * psi3_1) / 1350
+        self._a76 = h * (509 * psi1_1 - 2129 * psi2_1 + 1830 * psi3_1) / 2700
 
     def new_step_init(self, u: np.ndarray) -> None:
         """
@@ -687,72 +713,61 @@ class _Etd35NonDiagonal:
 
 class ETD35(ETDAS):
     r"""
-    Fifth-order Exponential Time Differencing (ETD(3,5)) solver with adaptive stepping.
+    Adaptive fifth-order Exponential Time-Differencing Runge–Kutta solver (ETD(3,5)).
 
-    This solver integrates stiff ODE systems of the form
+    Solves stiff systems of the form
 
     .. math::
 
-        \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}),
+        \frac{\partial \mathbf{U}}{\partial t}
+            = \mathcal{L}\mathbf{U}
+            + \mathcal{N}(\mathbf{U}),
 
-    using the **ETD(3,5)** scheme — a fifth-order exponential Runge–Kutta
-    method with an embedded third-order scheme for local error control.
-    Adaptive step adjustment is handled by the base :class:`rkstiff.etd.ETDAS`
-    controller.
+    where :math:`\mathcal{L}` is a linear operator and :math:`\mathcal{N}` is a nonlinear term.
 
-    Supports diagonal, diagonalized, and full non-diagonal linear operators.
+    This implementation follows the **ETD(3,5)** algorithm developed by
+    Whalen, Brio, and Moloney (2015), which embeds a third-order ETD
+    scheme for adaptive time-step control within a fifth-order integrator.
 
-    Parameters
+    The ETD(3,5) method advances the solution through exponential
+    Runge-Kutta stages defined by the *ψ-functions*:
+
+    .. math::
+
+        \psi_r(z)
+        = r \int_0^1 e^{(1-\theta)z}\,\theta^{r-1}\,d\theta,
+        \quad r = 1,2,3,\dots
+
+    These appear in the Runge-Kutta coefficients and can be related to
+    the more common :math:`\phi`-functions via
+    :math:`\psi_r(z) = r!\,\phi_r(z)`.
+
+    The embedded third-order estimate is used to adapt the time step
+    according to
+
+    .. math::
+
+        h_{\text{new}}
+        = h_{\text{old}}\,\nu
+            \left(
+            \frac{\varepsilon}{\mathrm{err}}
+            \right)^{1/(q+1)},
+        \qquad q=4,
+
+    where :math:`\varepsilon` is the tolerance, :math:`\nu` is a safety
+    factor, and :math:`\mathrm{err}` is the estimated local truncation error.
+
+    Supports
+    --------
+    - Diagonal :math:`\mathcal{L}` (elementwise exponentials)
+    - Diagonalizable :math:`\mathcal{L}` (eigenbasis integration)
+    - Full :math:`\mathcal{L}` (matrix exponentials via contour integration)
+
+    References
     ----------
-    lin_op : np.ndarray
-        Linear operator :math:`\mathbf{L}` in the system
-        :math:`\dot{\mathbf{U}} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U})`.
-
-        Can be one of the following:
-
-        - **1D array** – diagonal system.
-        - **2D square matrix** – full linear operator (non-diagonal).
-
-    nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
-    config : SolverConfig, optional
-        General solver configuration controlling adaptivity thresholds,
-        safety factors, and other integration parameters.
-    etd_config : ETDConfig, optional
-        Configuration for ETD-specific parameters such as contour integration
-        settings and spectral radius estimation.
-    diagonalize : bool, optional
-        If ``True``, performs eigenvalue decomposition to transform the
-        system into diagonal form before integration.
-    loglevel : Union[str, int], optional
-        Logging verbosity level.
-
-    Notes
-    -----
-    The local error estimate is computed using an embedded third-order method,
-    and timestep adaptivity uses the following heuristic:
-
-    .. math::
-
-        h_{\text{new}} = h_{\text{old}} \nu
-            \left( \frac{\epsilon}{\mathrm{err}} \right)^{1/(q+1)},
-
-    where :math:`q=4` for ETD(3,5), :math:`\epsilon` is the tolerance,
-    and :math:`\nu` is a user-defined safety factor.
-
-    Inherited configuration parameters:
-
-    - From **ETDAS**:
-
-    - ``modecutoff`` – threshold for contour integration.
-    - ``contour_points`` – number of contour quadrature points.
-    - ``contour_radius`` – contour radius in the complex plane.
-
-    - From **StiffSolverAS**:
-
-    - ``epsilon``, ``incr_f``, ``decr_f`` – adaptive step constants.
-    - ``safety_f`` – multiplicative safety factor.
-    - ``adapt_cutoff``, ``minh`` – adaptive and minimum step limits.
+    Whalen, P., Brio, M., & Moloney, J. V. (2015).
+    *Exponential time-differencing with embedded Runge–Kutta adaptive step control.*
+    **Journal of Computational Physics**, 280, 579–601.
     """
 
     _method: Union[_Etd35Diagonal, _Etd35Diagonalized, _Etd35NonDiagonal]

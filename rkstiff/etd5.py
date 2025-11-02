@@ -1,91 +1,84 @@
 r"""
-rkstiff.etd5
-=============
+Constant-Step Fifth-Order Exponential Time-Differencing Integrator
+==================================================================
 
-Implements the **fifth-order Exponential Time-Differencing (ETD5)** integrator
-for stiff ODE systems of the form
+Implements a **fifth-order exponential time-differencing (ETD5) solver**
+for stiff partial differential equations (PDEs) of the form
 
 .. math::
 
-    \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}).
+    \frac{\partial \mathbf{U}}{\partial t}
+      = \mathcal{L}\mathbf{U} + \mathcal{N}(\mathbf{U}),
 
-This solver uses a constant time step and supports both diagonal and
-full matrix linear operators, combining analytic exponentials with
-Runge–Kutta-style stage updates.
+where :math:`\mathcal{L}` is a linear spatial differential operator
+(e.g. Laplacian, biharmonic, etc.), and :math:`\mathcal{N}(\mathbf{U})`
+is a nonlinear term in physical or spectral space.
+
+The solver advances the field :math:`\mathbf{U}(x, t)` in time using
+a **six-stage exponential Runge–Kutta (ETD5) method** with precomputed
+matrix functions derived from :math:`\psi_r` integrals.
+
+This constant-step version corresponds to the fixed-step form of the
+adaptive ETD(3,5) scheme described in Whalen et al. (2015).
+
+References
+----------
+Whalen, P., Brio, M., & Moloney, J.V. (2015).
+*Exponential time-differencing with embedded Runge–Kutta adaptive step control.*
+Journal of Computational Physics, 280, 579–601.
 """
 
 from typing import Callable, Union, Literal
 import numpy as np
 from scipy.linalg import expm
-from rkstiff.etd import ETDCS, ETDConfig, phi1, phi2, phi3
+from rkstiff.etd import ETDCS, ETDConfig, psi1, psi2, psi3
 
 
 class _Etd5Diagonal:  # pylint: disable=too-few-public-methods
     r"""
-    ETD5 diagonal system strategy for the ETD5 solver.
+    ETD5 solver for diagonalized PDE systems.
 
-    Implements the fifth-order Exponential Time-Differencing (ETD5) scheme
-    for **diagonal** linear operators :math:`\mathbf{L}`, where each mode evolves
-    independently.
-
-    Given a system of the form
+    Solves evolution equations of the form
 
     .. math::
 
-        \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}),
+        \frac{\partial \mathbf{U}}{\partial t}
+        = \mathcal{L}\mathbf{U} + \mathcal{N}(\mathbf{U}),
 
-    this implementation exploits the diagonal structure of :math:`\mathbf{L}` to
-    avoid matrix operations, performing all updates via elementwise vector arithmetic.
+    where :math:`\mathcal{L}` acts diagonally in Fourier or spectral space.
+    Each spectral mode evolves independently, allowing efficient
+    elementwise computation of exponential and :math:`\psi_r` terms.
 
-    Parameters
-    ----------
-    lin_op : np.ndarray
-        1D array of diagonal entries of :math:`\mathbf{L}`.
-    nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
-    etd_config : ETDConfig
-        Configuration object defining:
-
-        - ``modecutoff`` – threshold distinguishing small from large modes.
-        - ``contour_points`` – number of quadrature nodes for contour integration.
-        - ``contour_radius`` – contour radius in the complex plane.
-
-    Notes
-    -----
-    The ETD5 scheme advances the solution using six intermediate stages:
+    The fifth-order ETD scheme uses six intermediate stages:
 
     .. math::
 
-        \mathbf{U}_{n+1}
-        = e^{h\mathbf{L}} \mathbf{U}_n
-        + \sum_{i=1}^{6} b_i\,\mathbf{N}(\mathbf{k}_i),
+        \mathbf{U}(t + h)
+          = e^{h\mathcal{L}}\,\mathbf{U}(t)
+            + h \sum_{i=1}^{6} b_i(h\mathcal{L})\,\mathcal{N}_i,
 
-    where the stage vectors :math:`\mathbf{k}_i` satisfy
+    with stage updates
 
     .. math::
 
         \mathbf{k}_i
-        = e^{c_i h\mathbf{L}} \mathbf{U}_n
-        + h \sum_{j<i} a_{ij}\,\mathbf{N}(\mathbf{k}_j).
+          = e^{c_i h\mathcal{L}}\,\mathbf{U}(t)
+            + h \sum_{j<i} a_{ij}(h\mathcal{L})\,\mathcal{N}_j.
 
-    The coefficients :math:`a_{ij}` and :math:`b_i` are derived from the **phi-functions**:
-
-    .. math::
-
-        \phi_k(z)
-        = \frac{1}{(k-1)!}
-        \int_0^1 e^{(1-\theta)z}\theta^{k-1}\,d\theta,
-        \quad k=1,2,3.
-
-    For large modes (:math:`|z| > \text{modecutoff}`), these are computed directly.
-    For small modes, they are evaluated using contour integration for numerical stability:
+    The coefficients :math:`a_{ij}` and :math:`b_i` are derived from the
+    **psi-functions**:
 
     .. math::
 
-        \phi_k(z)
-        \approx \frac{1}{N_p}\sum_{m=1}^{N_p}\phi_k(z + r_m),
-        \quad r_m = R\,e^{2\pi i (m-1/2)/N_p}.
+        \psi_r(z)
+          = r \int_0^1 e^{(1-\theta)z}\,\theta^{r-1}\,d\theta,
+          \quad r = 1,2,3,\dots
+
+    For large :math:`|h\lambda|`, the functions are evaluated analytically.
+    For small modes, they are computed by contour integration for
+    numerical stability.
     """
+
     def __init__(
         self,
         lin_op: np.ndarray,
@@ -123,7 +116,7 @@ class _Etd5Diagonal:  # pylint: disable=too-few-public-methods
         """
         Update ETD5 coefficients based on step size h.
 
-        Computes exponential and phi function coefficients for the diagonal system.
+        Computes exponential and psi function coefficients for the diagonal system.
         Small modes (|`h*λ`| < modecutoff) use contour integration to avoid numerical
         instability, while large modes use direct evaluation.
 
@@ -143,34 +136,34 @@ class _Etd5Diagonal:  # pylint: disable=too-few-public-methods
         smallmode_idx = np.abs(z) < self.etd_config.modecutoff
         # compute big mode coeffs
         zb = z[~smallmode_idx]  # z big
-        phi1_14 = h * phi1(zb / 4)
-        phi2_14 = h * phi2(zb / 4)
-        phi1_12 = h * phi1(zb / 2)
-        phi2_12 = h * phi2(zb / 2)
-        phi1_34 = h * phi1(3 * zb / 4)
-        phi2_34 = h * phi2(3 * zb / 4)
-        phi1_1 = h * phi1(zb)
-        phi2_1 = h * phi2(zb)
-        phi3_1 = h * phi3(zb)
+        psi1_14 = h * psi1(zb / 4)
+        psi2_14 = h * psi2(zb / 4)
+        psi1_12 = h * psi1(zb / 2)
+        psi2_12 = h * psi2(zb / 2)
+        psi1_34 = h * psi1(3 * zb / 4)
+        psi2_34 = h * psi2(3 * zb / 4)
+        psi1_1 = h * psi1(zb)
+        psi2_1 = h * psi2(zb)
+        psi3_1 = h * psi3(zb)
 
-        self._a21[~smallmode_idx] = phi1_14 / 4.0
-        self._a31[~smallmode_idx] = (phi1_14 - phi2_14 / 2.0) / 4.0
-        self._a32[~smallmode_idx] = phi2_14 / 8.0
-        self._a41[~smallmode_idx] = (phi1_12 - phi2_12) / 2.0
-        self._a43[~smallmode_idx] = phi2_12 / 2.0
-        self._a51[~smallmode_idx] = 3.0 * (phi1_34 - 3.0 * phi2_34 / 4.0) / 4.0
-        self._a52[~smallmode_idx] = -3 * phi1_34 / 8.0
-        self._a54[~smallmode_idx] = 9 * phi2_34 / 16.0
-        self._a61[~smallmode_idx] = (-77 * phi1_1 + 59 * phi2_1) / 42.0
-        self._a62[~smallmode_idx] = 8 * phi1_1 / 7.0
-        self._a63[~smallmode_idx] = (111 * phi1_1 - 87 * phi2_1) / 28.0
-        self._a65[~smallmode_idx] = (-47 * phi1_1 + 143 * phi2_1) / 84.0
-        self._b1[~smallmode_idx] = 7 * (257 * phi1_1 - 497 * phi2_1 + 270 * phi3_1) / 2700
-        # Paper has error in b3 phi2 coefficient (states this is 497 but it is actually 467)
-        self._b3[~smallmode_idx] = (1097 * phi1_1 - 467 * phi2_1 - 150 * phi3_1) / 1350
-        self._b4[~smallmode_idx] = 2 * (-49 * phi1_1 + 199 * phi2_1 - 135 * phi3_1) / 225
-        self._b5[~smallmode_idx] = (-313 * phi1_1 + 883 * phi2_1 - 90 * phi3_1) / 1350
-        self._b6[~smallmode_idx] = (509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1) / 2700
+        self._a21[~smallmode_idx] = psi1_14 / 4.0
+        self._a31[~smallmode_idx] = (psi1_14 - psi2_14 / 2.0) / 4.0
+        self._a32[~smallmode_idx] = psi2_14 / 8.0
+        self._a41[~smallmode_idx] = (psi1_12 - psi2_12) / 2.0
+        self._a43[~smallmode_idx] = psi2_12 / 2.0
+        self._a51[~smallmode_idx] = 3.0 * (psi1_34 - 3.0 * psi2_34 / 4.0) / 4.0
+        self._a52[~smallmode_idx] = -3 * psi1_34 / 8.0
+        self._a54[~smallmode_idx] = 9 * psi2_34 / 16.0
+        self._a61[~smallmode_idx] = (-77 * psi1_1 + 59 * psi2_1) / 42.0
+        self._a62[~smallmode_idx] = 8 * psi1_1 / 7.0
+        self._a63[~smallmode_idx] = (111 * psi1_1 - 87 * psi2_1) / 28.0
+        self._a65[~smallmode_idx] = (-47 * psi1_1 + 143 * psi2_1) / 84.0
+        self._b1[~smallmode_idx] = 7 * (257 * psi1_1 - 497 * psi2_1 + 270 * psi3_1) / 2700
+        # Paper has error in b3 psi2 coefficient (states this is 497 but it is actually 467)
+        self._b3[~smallmode_idx] = (1097 * psi1_1 - 467 * psi2_1 - 150 * psi3_1) / 1350
+        self._b4[~smallmode_idx] = 2 * (-49 * psi1_1 + 199 * psi2_1 - 135 * psi3_1) / 225
+        self._b5[~smallmode_idx] = (-313 * psi1_1 + 883 * psi2_1 - 90 * psi3_1) / 1350
+        self._b6[~smallmode_idx] = (509 * psi1_1 - 2129 * psi2_1 + 1830 * psi3_1) / 2700
 
         # compute small mode coeffs
         zs = z[smallmode_idx]  # z small
@@ -180,34 +173,34 @@ class _Etd5Diagonal:  # pylint: disable=too-few-public-methods
         rr, zz = np.meshgrid(r, zs)
         Z = zz + rr
 
-        phi1_14 = h * np.sum(phi1(Z / 4), axis=1) / self.etd_config.contour_points
-        phi2_14 = h * np.sum(phi2(Z / 4), axis=1) / self.etd_config.contour_points
-        phi1_12 = h * np.sum(phi1(Z / 2), axis=1) / self.etd_config.contour_points
-        phi2_12 = h * np.sum(phi2(Z / 2), axis=1) / self.etd_config.contour_points
-        phi1_34 = h * np.sum(phi1(3 * Z / 4), axis=1) / self.etd_config.contour_points
-        phi2_34 = h * np.sum(phi2(3 * Z / 4), axis=1) / self.etd_config.contour_points
-        phi1_1 = h * np.sum(phi1(Z), axis=1) / self.etd_config.contour_points
-        phi2_1 = h * np.sum(phi2(Z), axis=1) / self.etd_config.contour_points
-        phi3_1 = h * np.sum(phi3(Z), axis=1) / self.etd_config.contour_points
+        psi1_14 = h * np.sum(psi1(Z / 4), axis=1) / self.etd_config.contour_points
+        psi2_14 = h * np.sum(psi2(Z / 4), axis=1) / self.etd_config.contour_points
+        psi1_12 = h * np.sum(psi1(Z / 2), axis=1) / self.etd_config.contour_points
+        psi2_12 = h * np.sum(psi2(Z / 2), axis=1) / self.etd_config.contour_points
+        psi1_34 = h * np.sum(psi1(3 * Z / 4), axis=1) / self.etd_config.contour_points
+        psi2_34 = h * np.sum(psi2(3 * Z / 4), axis=1) / self.etd_config.contour_points
+        psi1_1 = h * np.sum(psi1(Z), axis=1) / self.etd_config.contour_points
+        psi2_1 = h * np.sum(psi2(Z), axis=1) / self.etd_config.contour_points
+        psi3_1 = h * np.sum(psi3(Z), axis=1) / self.etd_config.contour_points
 
-        self._a21[smallmode_idx] = phi1_14 / 4.0
-        self._a31[smallmode_idx] = (phi1_14 - phi2_14 / 2.0) / 4.0
-        self._a32[smallmode_idx] = phi2_14 / 8.0
-        self._a41[smallmode_idx] = (phi1_12 - phi2_12) / 2.0
-        self._a43[smallmode_idx] = phi2_12 / 2.0
-        self._a51[smallmode_idx] = 3.0 * (phi1_34 - 3.0 * phi2_34 / 4.0) / 4.0
-        self._a52[smallmode_idx] = -3 * phi1_34 / 8.0
-        self._a54[smallmode_idx] = 9 * phi2_34 / 16.0
-        self._a61[smallmode_idx] = (-77 * phi1_1 + 59 * phi2_1) / 42.0
-        self._a62[smallmode_idx] = 8 * phi1_1 / 7.0
-        self._a63[smallmode_idx] = (111 * phi1_1 - 87 * phi2_1) / 28.0
-        self._a65[smallmode_idx] = (-47 * phi1_1 + 143 * phi2_1) / 84.0
-        self._b1[smallmode_idx] = 7 * (257 * phi1_1 - 497 * phi2_1 + 270 * phi3_1) / 2700
-        # Paper has error in b3 phi2 coefficient (states this is 497 but it is actually 467)
-        self._b3[smallmode_idx] = (1097 * phi1_1 - 467 * phi2_1 - 150 * phi3_1) / 1350
-        self._b4[smallmode_idx] = 2 * (-49 * phi1_1 + 199 * phi2_1 - 135 * phi3_1) / 225
-        self._b5[smallmode_idx] = (-313 * phi1_1 + 883 * phi2_1 - 90 * phi3_1) / 1350
-        self._b6[smallmode_idx] = (509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1) / 2700
+        self._a21[smallmode_idx] = psi1_14 / 4.0
+        self._a31[smallmode_idx] = (psi1_14 - psi2_14 / 2.0) / 4.0
+        self._a32[smallmode_idx] = psi2_14 / 8.0
+        self._a41[smallmode_idx] = (psi1_12 - psi2_12) / 2.0
+        self._a43[smallmode_idx] = psi2_12 / 2.0
+        self._a51[smallmode_idx] = 3.0 * (psi1_34 - 3.0 * psi2_34 / 4.0) / 4.0
+        self._a52[smallmode_idx] = -3 * psi1_34 / 8.0
+        self._a54[smallmode_idx] = 9 * psi2_34 / 16.0
+        self._a61[smallmode_idx] = (-77 * psi1_1 + 59 * psi2_1) / 42.0
+        self._a62[smallmode_idx] = 8 * psi1_1 / 7.0
+        self._a63[smallmode_idx] = (111 * psi1_1 - 87 * psi2_1) / 28.0
+        self._a65[smallmode_idx] = (-47 * psi1_1 + 143 * psi2_1) / 84.0
+        self._b1[smallmode_idx] = 7 * (257 * psi1_1 - 497 * psi2_1 + 270 * psi3_1) / 2700
+        # Paper has error in b3 psi2 coefficient (states this is 497 but it is actually 467)
+        self._b3[smallmode_idx] = (1097 * psi1_1 - 467 * psi2_1 - 150 * psi3_1) / 1350
+        self._b4[smallmode_idx] = 2 * (-49 * psi1_1 + 199 * psi2_1 - 135 * psi3_1) / 225
+        self._b5[smallmode_idx] = (-313 * psi1_1 + 883 * psi2_1 - 90 * psi3_1) / 1350
+        self._b6[smallmode_idx] = (509 * psi1_1 - 2129 * psi2_1 + 1830 * psi3_1) / 2700
 
     def n1_init(self, u: np.ndarray) -> None:
         """
@@ -270,67 +263,51 @@ class _Etd5Diagonal:  # pylint: disable=too-few-public-methods
 
 class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
     r"""
-    ETD5 non-diagonal system strategy for the ETD5 solver.
+    ETD5 solver for non-diagonal PDE operators.
 
-    Implements the fifth-order Exponential Time-Differencing scheme for systems with
-    a **full (non-diagonal) matrix** linear operator :math:`\mathbf{L}`.
+    Suitable for PDEs where the linear operator :math:`\mathcal{L}`
+    couples multiple spatial modes, such as systems with mixed derivatives
+    or nonlocal coupling.
 
-    Given the semi-linear system
+    The governing equation is
 
     .. math::
 
-        \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}),
+        \frac{\partial \mathbf{U}}{\partial t}
+          = \mathcal{L}\mathbf{U} + \mathcal{N}(\mathbf{U}),
 
-    this variant computes all exponential and :math:`\phi_k` matrix functions
-    using matrix exponentials and Cauchy contour integration.
+    and the solver advances :math:`\mathbf{U}` in time using the
+    fifth-order ETD Runge–Kutta scheme with six exponential stages.
 
-    Parameters
+    The :math:`\psi_r(h\mathcal{L})` functions are defined as
+
+    .. math::
+
+        \psi_r(h\mathcal{L})
+          = r \int_0^1 e^{(1-\theta)h\mathcal{L}}\,
+            \theta^{r-1}\,d\theta,
+
+    and are evaluated using **Cauchy contour integration** for small
+    eigenvalue magnitudes:
+
+    .. math::
+
+        \psi_r(h\mathcal{L})
+        \approx \frac{1}{N_p}
+        \sum_{m=1}^{N_p}
+        \psi_r(r_m)\,(r_m\mathbf{I} - h\mathcal{L})^{-1},
+        \quad r_m = R\,e^{2\pi i(m - 1/2)/N_p}.
+
+    This formulation is more computationally demanding than the diagonal
+    variant but necessary for general coupled systems.
+
+    References
     ----------
-    lin_op : np.ndarray
-        Full (square) matrix linear operator :math:`\mathbf{L}`.
-    nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
-    etd_config : ETDConfig
-        Configuration for contour integration and radius settings.
-
-    Notes
-    -----
-    The ETD5 scheme uses six Runge–Kutta-like stages:
-
-    .. math::
-
-        \mathbf{U}_{n+1}
-        = e^{h\mathbf{L}} \mathbf{U}_n
-        + h \sum_{i=1}^{6} b_i\,\mathbf{N}(\mathbf{k}_i),
-
-    where
-
-    .. math::
-
-        \mathbf{k}_i = e^{c_i h\mathbf{L}} \mathbf{U}_n
-        + h \sum_{j<i} a_{ij}\,\mathbf{N}(\mathbf{k}_j).
-
-    The coefficients :math:`a_{ij}` and :math:`b_i` depend on
-    :math:`\phi_k(\mathbf{Z})` functions with :math:`\mathbf{Z} = h\mathbf{L}`:
-
-    .. math::
-
-        \phi_k(\mathbf{Z})
-        = \frac{1}{(k-1)!}
-        \int_0^1 e^{(1-\theta)\mathbf{Z}}\,\theta^{k-1}\,d\theta.
-
-    These are evaluated numerically by contour integration using
-
-    .. math::
-
-        \phi_k(\mathbf{Z})
-        \approx \frac{1}{N_p}\sum_{m=1}^{N_p}
-        \phi_k(r_m)\,(\,r_m\mathbf{I}-\mathbf{Z}\,)^{-1},
-        \quad r_m = R\,e^{2\pi i (m-1/2)/N_p}.
-
-    This matrix formulation is more computationally intensive but necessary
-    for coupled or non-diagonalizable systems.
+    Whalen, P., Brio, M., & Moloney, J.V. (2015).
+    *Exponential time-differencing with embedded Runge–Kutta adaptive step control.*
+    Journal of Computational Physics, 280, 579–601.
     """
+
     def __init__(
         self,
         lin_op: np.ndarray,
@@ -384,7 +361,7 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
         """
         Update ETD5 coefficients for non-diagonal systems.
 
-        Computes exponential and phi function coefficients using contour integration
+        Computes exponential and psi function coefficients using contour integration
         for all modes. Uses matrix exponentials and the Cauchy integral formula.
 
         Parameters
@@ -404,43 +381,43 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
         contour_points = self.etd_config.contour_radius * np.exp(
             2j * np.pi * np.arange(0.5, self.etd_config.contour_points) / self.etd_config.contour_points
         )
-        phi1_14, phi2_14, phi1_12, phi2_12, phi1_34, phi2_34 = [
+        psi1_14, psi2_14, psi1_12, psi2_12, psi1_34, psi2_34 = [
             np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(6)
         ]
-        phi1_1, phi2_1, phi3_1 = [np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(3)]
+        psi1_1, psi2_1, psi3_1 = [np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(3)]
 
         for point in contour_points:
             Q14 = np.linalg.inv(point * np.eye(*self.lin_op.shape) - z / 4.0)
             Q12 = np.linalg.inv(point * np.eye(*self.lin_op.shape) - z / 2.0)
             Q34 = np.linalg.inv(point * np.eye(*self.lin_op.shape) - 3 * z / 4.0)
             Q = np.linalg.inv(point * np.eye(*self.lin_op.shape) - z)
-            phi1_14 += point * phi1(point) * Q14 / self.etd_config.contour_points
-            phi2_14 += point * phi2(point) * Q14 / self.etd_config.contour_points
-            phi1_12 += point * phi1(point) * Q12 / self.etd_config.contour_points
-            phi2_12 += point * phi2(point) * Q12 / self.etd_config.contour_points
-            phi1_34 += point * phi1(point) * Q34 / self.etd_config.contour_points
-            phi2_34 += point * phi2(point) * Q34 / self.etd_config.contour_points
-            phi1_1 += point * phi1(point) * Q / self.etd_config.contour_points
-            phi2_1 += point * phi2(point) * Q / self.etd_config.contour_points
-            phi3_1 += point * phi3(point) * Q / self.etd_config.contour_points
+            psi1_14 += point * psi1(point) * Q14 / self.etd_config.contour_points
+            psi2_14 += point * psi2(point) * Q14 / self.etd_config.contour_points
+            psi1_12 += point * psi1(point) * Q12 / self.etd_config.contour_points
+            psi2_12 += point * psi2(point) * Q12 / self.etd_config.contour_points
+            psi1_34 += point * psi1(point) * Q34 / self.etd_config.contour_points
+            psi2_34 += point * psi2(point) * Q34 / self.etd_config.contour_points
+            psi1_1 += point * psi1(point) * Q / self.etd_config.contour_points
+            psi2_1 += point * psi2(point) * Q / self.etd_config.contour_points
+            psi3_1 += point * psi3(point) * Q / self.etd_config.contour_points
 
-        self._a21 = h * phi1_14 / 4.0
-        self._a31 = h * (phi1_14 - phi2_14 / 2.0) / 4.0
-        self._a32 = h * phi2_14 / 8.0
-        self._a41 = h * (phi1_12 - phi2_12) / 2.0
-        self._a43 = h * phi2_12 / 2.0
-        self._a51 = h * 3.0 * (phi1_34 - 3.0 * phi2_34 / 4.0) / 4.0
-        self._a52 = -3 * h * phi1_34 / 8.0
-        self._a54 = h * 9 * phi2_34 / 16.0
-        self._a61 = h * (-77 * phi1_1 + 59 * phi2_1) / 42.0
-        self._a62 = h * 8 * phi1_1 / 7.0
-        self._a63 = h * (111 * phi1_1 - 87 * phi2_1) / 28.0
-        self._a65 = h * (-47 * phi1_1 + 143 * phi2_1) / 84.0
-        self._b1 = h * 7 * (257 * phi1_1 - 497 * phi2_1 + 270 * phi3_1) / 2700
-        self._b3 = h * (1097 * phi1_1 - 467 * phi2_1 - 150 * phi3_1) / 1350
-        self._b4 = h * 2 * (-49 * phi1_1 + 199 * phi2_1 - 135 * phi3_1) / 225
-        self._b5 = h * (-313 * phi1_1 + 883 * phi2_1 - 90 * phi3_1) / 1350
-        self._b6 = h * (509 * phi1_1 - 2129 * phi2_1 + 1830 * phi3_1) / 2700
+        self._a21 = h * psi1_14 / 4.0
+        self._a31 = h * (psi1_14 - psi2_14 / 2.0) / 4.0
+        self._a32 = h * psi2_14 / 8.0
+        self._a41 = h * (psi1_12 - psi2_12) / 2.0
+        self._a43 = h * psi2_12 / 2.0
+        self._a51 = h * 3.0 * (psi1_34 - 3.0 * psi2_34 / 4.0) / 4.0
+        self._a52 = -3 * h * psi1_34 / 8.0
+        self._a54 = h * 9 * psi2_34 / 16.0
+        self._a61 = h * (-77 * psi1_1 + 59 * psi2_1) / 42.0
+        self._a62 = h * 8 * psi1_1 / 7.0
+        self._a63 = h * (111 * psi1_1 - 87 * psi2_1) / 28.0
+        self._a65 = h * (-47 * psi1_1 + 143 * psi2_1) / 84.0
+        self._b1 = h * 7 * (257 * psi1_1 - 497 * psi2_1 + 270 * psi3_1) / 2700
+        self._b3 = h * (1097 * psi1_1 - 467 * psi2_1 - 150 * psi3_1) / 1350
+        self._b4 = h * 2 * (-49 * psi1_1 + 199 * psi2_1 - 135 * psi3_1) / 225
+        self._b5 = h * (-313 * psi1_1 + 883 * psi2_1 - 90 * psi3_1) / 1350
+        self._b6 = h * (509 * psi1_1 - 2129 * psi2_1 + 1830 * psi3_1) / 2700
 
     def n1_init(self, u: np.ndarray) -> None:
         """
@@ -507,62 +484,50 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
 
 class ETD5(ETDCS):
     r"""
-    Fifth-order Exponential Time-Differencing (ETD5) solver with constant step size.
+    Fifth-order Exponential Time-Differencing solver for PDEs.
 
-    This solver integrates semi-linear systems of the form
+    Integrates stiff PDEs of the form
 
     .. math::
 
-        \frac{d\mathbf{U}}{dt} = \mathbf{L}\mathbf{U} + \mathbf{N}(\mathbf{U}),
+        \frac{\partial \mathbf{U}}{\partial t}
+          = \mathcal{L}\mathbf{U} + \mathcal{N}(\mathbf{U}),
 
-    where :math:`\mathbf{L}` is a linear operator and :math:`\mathbf{N}(\mathbf{U})`
-    is a nonlinear function.
+    where
+    - :math:`\mathcal{L}` is a linear spatial operator (e.g. diffusion or advection),
+    - :math:`\mathcal{N}` represents nonlinear stiff terms.
 
-    It implements the fifth-order ETD Runge–Kutta scheme introduced by Cox & Matthews (2002),
-    optimized for both diagonal and non-diagonal systems.
+    The solution is advanced in time using a **six-stage exponential Runge–Kutta**
+    scheme, with coefficients derived from the :math:`\psi_r` functions.
 
     Parameters
     ----------
     lin_op : np.ndarray
-        Linear operator :math:`\mathbf{L}`.  
-        Can be one of the following:
-
-        - **1D array** – diagonal system.
-        - **2D matrix** – full non-diagonal operator.
-
+        Discretized linear operator :math:`\mathcal{L}` in matrix or diagonal form.
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function :math:`\mathbf{N}(\mathbf{U})`.
+        Nonlinear functional :math:`\mathcal{N}[\mathbf{U}]`.
     etd_config : ETDConfig, optional
-        Configuration for ETD parameters (``modecutoff``, ``contour_points``, ``contour_radius``).
+        Configuration for contour integration and cutoff parameters.
 
     Notes
     -----
-    The ETD5 scheme advances the solution using exponential Runge–Kutta stages:
+    - Automatically detects whether the linear operator is diagonal and selects
+      optimized routines.
+    - Coefficients are cached and recomputed only when the step size :math:`h`
+      changes.
+    - Uses the *First Same As Last (FSAL)* property to reuse the last nonlinear
+      evaluation efficiently.
+    - Designed for PDEs discretized in space via spectral or finite-difference methods.
 
-    .. math::
+    References
+    ----------
+    Cox, S.M. & Matthews, P.C. (2002).
+    *Exponential time differencing for stiff systems.*
+    Journal of Computational Physics, 176(2), 430–455.
 
-        \mathbf{u}_{n+1}
-        = e^{h\mathbf{L}} \mathbf{u}_n
-        + h \sum_{i=1}^{6} b_i\, \mathbf{N}(\mathbf{k}_i),
-
-    where intermediate stages :math:`\mathbf{k}_i` are defined recursively as
-
-    .. math::
-
-        \mathbf{k}_i = e^{c_i h\mathbf{L}} \mathbf{u}_n
-        + h \sum_{j < i} a_{ij}\, \mathbf{N}(\mathbf{k}_j).
-
-    The coefficients :math:`a_{ij}` and :math:`b_i` depend on the matrix functions
-
-    .. math::
-
-        \phi_k(z) = \frac{1}{(k-1)!} \int_0^1 e^{(1-\theta)z}\theta^{k-1}\,d\theta,
-
-    which are computed via direct evaluation for large modes and contour
-    integration for small :math:`|z| < \text{modecutoff}`.
-
-    This constant-step solver corresponds to the adaptive ETD(3,5) method
-    without embedded error estimation.
+    Krogstad, S. (2005).
+    *Generalized integrating factor methods for stiff PDEs.*
+    Journal of Computational Physics, 203(1), 72–88.
     """
 
     _method: Union[_Etd5Diagonal, _Etd5NonDiagonal]
@@ -631,7 +596,7 @@ class ETD5(ETDCS):
         """
         Update ETD5 coefficients if the step size has changed.
 
-        Computes and caches the exponential and phi function coefficients required
+        Computes and caches the exponential and psi function coefficients required
         for the ETD5 method. Coefficients depend on h*L and are expensive to compute,
         so they are only recalculated when the step size changes.
 
@@ -646,7 +611,7 @@ class ETD5(ETDCS):
         - Delegates actual computation to the internal method object (_Etd5Diagonal or _Etd5NonDiagonal).
         - Logs coefficient updates for debugging and monitoring.
         - The coefficients include matrix exponentials exp(h*L/4), exp(h*L/2),
-          exp(3h*L/4), exp(h*L) and phi functions phi1, phi2, phi3 evaluated at various fractional steps.
+          exp(3h*L/4), exp(h*L) and psi functions psi1, psi2, psi3 evaluated at various fractional steps.
         """
         if h == self._h_coeff:
             return
@@ -661,7 +626,7 @@ class ETD5(ETDCS):
         Computes u_{n+1} from u_n by executing the six-stage Runge-Kutta-like
         procedure of the ETD5 method. This includes evaluating the nonlinear
         function at intermediate stages and combining results using precomputed
-        exponential and phi function coefficients.
+        exponential and psi function coefficients.
 
         Parameters
         ----------
