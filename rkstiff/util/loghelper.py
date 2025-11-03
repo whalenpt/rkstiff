@@ -1,8 +1,38 @@
-"""
-Logging helper utilities for rkstiff solvers.
+r"""
+Logging helper utilities
+========================
 
-Provides functions for parsing log levels, setting up loggers, and configuring
-logging for solver classes.
+Logging helper utilities for :mod:`rkstiff` solvers.
+
+This module provides standardized logging configuration tools for
+solver classes and submodules within the :mod:`rkstiff` framework.
+It ensures consistent, hierarchical log naming (e.g., ``rkstiff.IF4``),
+and human-readable output formatting suitable for both console use and
+debugging during solver development.
+
+Overview
+--------
+
+- :func:`_parse_loglevel` — Convert user-specified log level to a numeric constant.
+- :func:`get_level_name` — Return string name for a numeric logging level.
+- :func:`setup_logger` — Configure and return a new logger.
+- :func:`set_log_level` — Adjust the level of an existing logger.
+- :func:`get_solver_logger` — Create a standardized logger for solver classes.
+
+Example
+-------
+
+.. code-block:: python
+
+    from rkstiff.util.loghelper import get_solver_logger
+
+    class IF4:
+        def __init__(self):
+            self.logger = get_solver_logger(self.__class__, "INFO")
+            self.logger.info("Initialized IF4 solver")
+
+    # Output:
+    # 2025-11-02 10:30:45 - rkstiff.IF4 - INFO - Initialized IF4 solver
 """
 
 import logging
@@ -10,28 +40,27 @@ from typing import Union
 
 
 def _parse_loglevel(loglevel: Union[str, int]) -> int:
-    """
-    Convert loglevel input to logging integer constant.
+    r"""
+    Convert a log level (string or numeric) into a Python ``logging`` integer constant.
 
     Parameters
     ----------
     loglevel : str or int
-        Logging level as string (e.g., ``'INFO'``, ``'DEBUG'``) or integer
-        constant (e.g., ``logging.INFO``).
+        Logging level, e.g. ``"INFO"`` or ``logging.DEBUG``.
 
     Returns
     -------
     int
-        Numeric logging level corresponding to the input.
+        Numeric logging level constant.
 
     Raises
     ------
     ValueError
-        If `loglevel` is a string that does not match a valid logging level name.
+        If the string does not match a valid logging level name.
 
     Examples
     --------
-    >>> _parse_loglevel('INFO')
+    >>> _parse_loglevel("INFO")
     20
     >>> _parse_loglevel(logging.DEBUG)
     10
@@ -39,30 +68,31 @@ def _parse_loglevel(loglevel: Union[str, int]) -> int:
     if isinstance(loglevel, str):
         numeric_level = getattr(logging, loglevel.upper(), None)
         if not isinstance(numeric_level, int):
-            raise ValueError("Invalid log level: %s" % loglevel)
+            raise ValueError(f"Invalid log level: {loglevel}")
         return numeric_level
     return loglevel
 
 
 def get_level_name(level: int) -> str:
-    """
-    Get the string name for a logging level.
+    r"""
+    Return the canonical string name for a numeric logging level.
 
     Parameters
     ----------
     level : int
-        Numeric logging level (e.g., ``10`` for DEBUG, ``20`` for INFO).
+        Logging level constant (e.g. ``logging.INFO``).
 
     Returns
     -------
     str
-        Level name such as ``'DEBUG'``, ``'INFO'``, ``'WARNING'``, ``'ERROR'``,
-        or ``'CRITICAL'``.
+        Corresponding level name, such as ``"DEBUG"``, ``"INFO"``, or ``"ERROR"``.
 
     Examples
     --------
     >>> get_level_name(logging.INFO)
     'INFO'
+    >>> get_level_name(15)
+    'Level 15'
     """
     level_names = {
         logging.DEBUG: "DEBUG",
@@ -71,65 +101,53 @@ def get_level_name(level: int) -> str:
         logging.ERROR: "ERROR",
         logging.CRITICAL: "CRITICAL",
     }
-    return level_names.get(level, "Level %s" % level)
+    return level_names.get(level, f"Level {level}")
 
 
 def setup_logger(name: str, loglevel: Union[str, int] = "WARNING") -> logging.Logger:
-    """
-    Set up a logger with the specified name and level.
+    r"""
+    Create and configure a logger with standardized formatting.
 
-    Creates a new logger or retrieves an existing one, configures its logging
-    level, and adds a StreamHandler with a formatted output if no handlers
-    are already present. This prevents duplicate log messages.
+    The logger uses timestamped output of the form::
+
+        YYYY-MM-DD HH:MM:SS - logger_name - LEVEL - message
+
+    If a logger with the given name already exists, this function will not
+    add additional handlers (to avoid duplicated messages).
 
     Parameters
     ----------
     name : str
-        Name for the logger, typically ``__name__`` for module-level loggers
-        or a class name for class-specific loggers.
+        Name for the logger (e.g. ``"rkstiff.solver.IF4"`` or ``__name__``).
     loglevel : str or int, optional
-        Logging level. Can be specified as:
-
-        - String: ``'DEBUG'``, ``'INFO'``, ``'WARNING'``, ``'ERROR'``, ``'CRITICAL'``
-        - Integer: ``logging.DEBUG``, ``logging.INFO``, etc.
-
-        Default is ``'WARNING'``.
+        Logging level as a string or integer. Default is ``"WARNING"``.
 
     Returns
     -------
     logging.Logger
-        Configured logger instance ready for use.
+        Configured logger instance.
 
     Notes
     -----
-    The logger uses the following format for messages::
-
-        YYYY-MM-DD HH:MM:SS - logger_name - LEVEL - message
-
-    If the logger already has handlers, no additional handlers are added to
-    avoid duplicate output.
+    This helper ensures a consistent format across all :mod:`rkstiff` modules.
+    Typically used via :func:`get_solver_logger` for class-based solvers.
 
     Examples
     --------
-    >>> logger = setup_logger('my_module', 'INFO')
-    >>> logger.info('This is an info message')
-    2025-11-02 10:30:45 - my_module - INFO - This is an info message
-
-    >>> logger = setup_logger('my_class', logging.DEBUG)
-    >>> logger.debug('Debug information')
-    2025-11-02 10:30:46 - my_class - DEBUG - Debug information
+    >>> logger = setup_logger("rkstiff.IF4", "INFO")
+    >>> logger.info("Solver initialized")
+    2025-11-02 10:30:45 - rkstiff.IF4 - INFO - Solver initialized
     """
     logger = logging.getLogger(name)
-
-    # Set the logging level using helper
     numeric_level = _parse_loglevel(loglevel)
     logger.setLevel(numeric_level)
 
-    # Add handler if logger doesn't have one (avoid duplicate handlers)
+    # Only add a handler if none exist (avoids duplicate output)
     if not logger.handlers:
         handler = logging.StreamHandler()
         formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
@@ -138,80 +156,64 @@ def setup_logger(name: str, loglevel: Union[str, int] = "WARNING") -> logging.Lo
 
 
 def set_log_level(logger: logging.Logger, loglevel: Union[str, int]) -> None:
-    """
-    Set the logging level for an existing logger.
-
-    Updates the minimum severity level that the logger will process. Messages
-    with severity below this level will be ignored.
+    r"""
+    Set or update the logging level of an existing logger.
 
     Parameters
     ----------
     logger : logging.Logger
-        Logger instance to configure.
+        Logger instance to modify.
     loglevel : str or int
-        Logging level as string (e.g., ``'INFO'``, ``'DEBUG'``) or integer
-        constant (e.g., ``logging.INFO``).
+        New logging level (e.g. ``"DEBUG"`` or ``logging.INFO``).
 
     Raises
     ------
     ValueError
-        If `loglevel` is a string that does not match a valid logging level name.
+        If the provided string does not correspond to a valid logging level.
 
     See Also
     --------
     setup_logger : Create and configure a new logger.
-    _parse_loglevel : Convert loglevel input to integer constant.
+    get_solver_logger : Generate a standardized solver logger.
 
     Examples
     --------
-    >>> logger = setup_logger('my_logger', 'WARNING')
-    >>> set_log_level(logger, 'DEBUG')
-    >>> logger.debug('Now visible')
-    2025-11-02 10:30:47 - my_logger - DEBUG - Now visible
+    >>> logger = setup_logger("rkstiff.IF4", "WARNING")
+    >>> set_log_level(logger, "DEBUG")
+    >>> logger.debug("Verbose solver output")
+    2025-11-02 10:30:47 - rkstiff.IF4 - DEBUG - Verbose solver output
     """
     numeric_level = _parse_loglevel(loglevel)
     logger.setLevel(numeric_level)
 
 
 def get_solver_logger(solver_class: type, loglevel: Union[str, int] = "WARNING") -> logging.Logger:
-    """
-    Create a logger for a solver instance.
+    r"""
+    Return a standardized logger for a solver class.
 
-    Creates a logger with a standardized name based on the solver class name.
-    The logger name follows the pattern ``'rkstiff.<ClassName>'`` to maintain
-    a consistent logging hierarchy.
+    The logger name follows the pattern ``rkstiff.<ClassName>``,
+    ensuring consistent log hierarchies across solvers (e.g. ``rkstiff.IF4``).
 
     Parameters
     ----------
     solver_class : type
-        The solver class (e.g., ``ETD35``, ``IF34``, ``ETDRK4``). The class's
-        ``__name__`` attribute is used to construct the logger name.
+        Class object (e.g. ``ETDRK4`` or ``IF4``). Its ``__name__`` attribute
+        is used in constructing the logger name.
     loglevel : str or int, optional
-        Initial logging level. Can be specified as:
-
-        - String: ``'DEBUG'``, ``'INFO'``, ``'WARNING'``, ``'ERROR'``, ``'CRITICAL'``
-        - Integer: ``logging.DEBUG``, ``logging.INFO``, etc.
-
-        Default is ``'WARNING'``.
+        Logging level. Default is ``"WARNING"``.
 
     Returns
     -------
     logging.Logger
-        Configured logger for the solver with name ``'rkstiff.<ClassName>'``.
-
-    See Also
-    --------
-    setup_logger : Lower-level function for creating loggers.
+        Configured logger instance named ``"rkstiff.<ClassName>"``.
 
     Examples
     --------
-    >>> class ETD35:
+    >>> class IF4:
     ...     pass
-    >>> logger = get_solver_logger(ETD35, 'INFO')
-    >>> logger.name
-    'rkstiff.ETD35'
-    >>> logger.info('Solver initialized')
-    2025-11-02 10:30:48 - rkstiff.ETD35 - INFO - Solver initialized
+    >>> logger = get_solver_logger(IF4, "INFO")
+    >>> logger.info("Solver initialized")
+    2025-11-02 10:30:48 - rkstiff.IF4 - INFO - Solver initialized
     """
-    logger_name = "rkstiff.%s" % solver_class.__name__
+    logger_name = f"rkstiff.{solver_class.__name__}"
     return setup_logger(logger_name, loglevel)

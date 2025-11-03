@@ -56,6 +56,7 @@ Utilities and helper modules for numerical computations.
    rkstiff.derivatives
    rkstiff.grids
    rkstiff.models
+   rkstiff.transforms
 
 Utilities
 ---------
@@ -64,7 +65,6 @@ Additional utility functions and helpers.
 
 .. autosummary::
    :toctree: _autosummary
-   :recursive:
    :nosignatures:
    
-   rkstiff.util
+   rkstiff.util.loghelper

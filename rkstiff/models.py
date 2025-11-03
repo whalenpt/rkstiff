@@ -1,69 +1,104 @@
-"""
-rkstiff.models
+r"""
+Common benchmark models and initial conditions for stiff PDE solvers
+====================================================================
 
-Provides common models and initial conditions for testing stiff solvers.
 
-This module includes:
-    - KdV (Korteweg-de Vries) equation utilities
-    - Burgers equation utilities
-    - Allen-Cahn equation utilities
+This module provides utilities for constructing canonical **test equations**
+used to validate time-integration schemes such as exponential, integrating-factor,
+and Runge–Kutta methods.  
+
+Each model supplies:
+  - The governing **PDE**
+  - The corresponding **linear** and **nonlinear operators**
+  - Representative **initial conditions**
+
+Models included
+---------------
+
+- **Korteweg–de Vries (KdV)** equation — soliton dynamics  
+- **Viscous Burgers** equation — nonlinear advection–diffusion  
+- **Allen–Cahn** equation — bistable phase-field dynamics
 """
 
 from typing import Callable, Tuple, Sequence
 import numpy as np
 
 
+# ---------------------------------------------------------------------------
+#  KORTEWEG–DE VRIES EQUATION
+# ---------------------------------------------------------------------------
+
 def kdv_soliton(x: np.ndarray, ampl: float = 0.5, x0: float = 0.0, t: float = 0.0) -> np.ndarray:
-    """
-    Return a single KdV soliton initial condition.
+    r"""
+    Return the analytic single-soliton solution of the **Korteweg–de Vries (KdV)** equation.
+
+    The KdV equation is:
+
+    .. math::
+
+        \frac{\partial u}{\partial t}
+        + 6 u \frac{\partial u}{\partial x}
+        + \frac{\partial^3 u}{\partial x^3} = 0.
+
+    Its single-soliton solution is given by:
+
+    .. math::
+
+        u(x,t)
+        = \tfrac{1}{2} a^2
+          \operatorname{sech}^2\!
+          \left[\tfrac{1}{2} a
+          (x - x_0 - a^2 t)\right],
+
+    where :math:`a` is the amplitude parameter.
 
     Parameters
     ----------
     x : np.ndarray
-        Spatial coordinate array.
+        Spatial grid points.
     ampl : float, optional
-        Amplitude parameter of the soliton. Default is 0.5.
+        Soliton amplitude :math:`a`. Default is ``0.5``.
     x0 : float, optional
-        Initial position of the soliton. Default is 0.0.
+        Initial position :math:`x_0`. Default is ``0.0``.
     t : float, optional
-        Time parameter (for time-evolved soliton). Default is 0.0.
+        Time. Default is ``0.0``.
 
     Returns
     -------
     np.ndarray
-        Soliton solution evaluated at positions x and time t.
+        Soliton profile :math:`u(x,t)`.
     """
     u0 = 0.5 * ampl**2 / (np.cosh(ampl * (x - x0 - ampl**2 * t) / 2) ** 2)
     return u0
 
 
 def kdv_multi_soliton(x: np.ndarray, ampl: Sequence[float], x0: Sequence[float], t: float = 0.0) -> np.ndarray:
-    """
-    Return a multi-soliton KdV initial condition.
+    r"""
+    Construct a **multi-soliton** superposition for the KdV equation.
 
     Parameters
     ----------
     x : np.ndarray
-        Spatial coordinate array of length n.
+        Spatial grid points.
     ampl : Sequence[float]
-        Amplitude parameters for each soliton (length m).
+        Sequence of soliton amplitudes :math:`(a_1, a_2, \dots, a_m)`.
     x0 : Sequence[float]
-        Initial positions for each soliton (length m).
+        Initial positions :math:`(x_{0,1}, x_{0,2}, \dots, x_{0,m})`.
     t : float, optional
-        Time parameter (for time-evolved solitons). Default is 0.0.
+        Time. Default is ``0.0``.
 
     Returns
     -------
     np.ndarray
-        Sum of all soliton solutions evaluated at positions x and time t.
+        Sum of all soliton profiles at time ``t``.
 
     Raises
     ------
     ValueError
-        If lengths of ampl and x0 don't match.
+        If ``ampl`` and ``x0`` have mismatched lengths.
     """
     if len(x0) != len(ampl):
-        raise ValueError(f"Length of ampl ({len(ampl)}) must equal length of x0 ({len(x0)})")
+        raise ValueError("Lengths of ampl and x0 must match.")
 
     m = len(ampl)
     n = len(x)
@@ -71,16 +106,20 @@ def kdv_multi_soliton(x: np.ndarray, ampl: Sequence[float], x0: Sequence[float],
     x0_arr = np.array(x0).reshape(1, m)
 
     u0 = 0.5 * ampl_arr**2 / (np.cosh(ampl_arr * (x.reshape(n, 1) - x0_arr - ampl_arr**2 * t) / 2) ** 2)
-    u0 = np.sum(u0, axis=1)
-
-    return u0
+    return np.sum(u0, axis=1)
 
 
 def kdv_ops(kx: np.ndarray) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarray]]:
-    """
-    Return the linear operator and nonlinear function for the KdV equation.
+    r"""
+    Return the linear and nonlinear operators for the **KdV** equation.
 
-    The KdV equation is: u_t + 6u*u_x + u_xxx = 0
+    Governing PDE:
+
+    .. math::
+
+        \frac{\partial u}{\partial t}
+        = -6u \frac{\partial u}{\partial x}
+          - \frac{\partial^3 u}{\partial x^3}.
 
     Parameters
     ----------
@@ -90,9 +129,10 @@ def kdv_ops(kx: np.ndarray) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarr
     Returns
     -------
     lin_op : np.ndarray
-        Linear operator in Fourier space (1j * kx**3).
+        Linear operator in spectral space :math:`L = i k_x^3`.
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function that computes -6 * FFT(u * u_x).
+        Nonlinear term :math:`N(u) = -6\,\mathcal{F}[u u_x]`,
+        where :math:`u_x = \mathcal{F}^{-1}[i k_x \hat{u}]`.
     """
     lin_op = 1j * kx**3
 
@@ -104,25 +144,43 @@ def kdv_ops(kx: np.ndarray) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarr
     return lin_op, nl_func
 
 
-def burgers_ops(kx: np.ndarray, mu: float) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarray]]:
-    """
-    Return the linear operator and nonlinear function for the viscous Burgers equation.
+# ---------------------------------------------------------------------------
+#  VISCOUS BURGERS EQUATION
+# ---------------------------------------------------------------------------
 
-    The Burgers equation is: u_t + u*u_x = mu * u_xx
+def burgers_ops(kx: np.ndarray, mu: float) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarray]]:
+    r"""
+    Return the linear and nonlinear operators for the **viscous Burgers equation**.
+
+    Governing PDE:
+
+    .. math::
+
+        \frac{\partial u}{\partial t}
+        + u \frac{\partial u}{\partial x}
+        = \mu \frac{\partial^2 u}{\partial x^2},
+
+    where :math:`\mu > 0` is the kinematic viscosity.
 
     Parameters
     ----------
     kx : np.ndarray
         Wavenumber array in Fourier space.
     mu : float
-        Viscosity parameter (must be positive).
+        Viscosity coefficient.
 
     Returns
     -------
     lin_op : np.ndarray
-        Linear operator in Fourier space (-mu * kx**2).
+        Linear operator :math:`L = -\mu k_x^2`.
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function that computes -FFT(u * u_x).
+        Nonlinear term :math:`N(u) = -\mathcal{F}[u u_x]`.
+
+    Notes
+    -----
+    In Fourier space, differentiation corresponds to multiplication by
+    :math:`i k_x`, allowing both linear diffusion and nonlinear advection
+    terms to be computed spectrally.
     """
     lin_op = -mu * kx**2
 
@@ -134,40 +192,52 @@ def burgers_ops(kx: np.ndarray, mu: float) -> Tuple[np.ndarray, Callable[[np.nda
     return lin_op, nl_func
 
 
+# ---------------------------------------------------------------------------
+#  ALLEN–CAHN EQUATION
+# ---------------------------------------------------------------------------
+
 def allen_cahn_ops(
     x: np.ndarray, d_cheb_matrix: np.ndarray, epsilon: float = 0.01
 ) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarray]]:
-    """
-    Return the linear operator and nonlinear function for the Allen-Cahn equation.
+    r"""
+    Return the linear and nonlinear operators for the **Allen–Cahn equation**.
 
-    The Allen-Cahn equation is: u_t = epsilon * u_xx + u - u^3
+    Governing PDE:
+
+    .. math::
+
+        \frac{\partial u}{\partial t}
+        = \epsilon \frac{\partial^2 u}{\partial x^2}
+        + u - u^3,
+
+    where :math:`\epsilon` is a small positive diffusion coefficient.
 
     Parameters
     ----------
     x : np.ndarray
-        Spatial coordinate array (Chebyshev grid).
+        Spatial grid (Chebyshev–Gauss–Lobatto points).
     d_cheb_matrix : np.ndarray
-        Chebyshev differentiation matrix.
+        Chebyshev differentiation matrix :math:`D`.
     epsilon : float, optional
-        Diffusion coefficient (must be positive). Default is 0.01.
+        Diffusion parameter :math:`\epsilon`. Default is ``0.01``.
 
     Returns
     -------
     lin_op : np.ndarray
-        Linear operator (epsilon * D^2 + I) with boundary points removed.
+        Linear operator :math:`L = \epsilon D^2 + I` with boundary rows removed.
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function that computes x - (u + x)^3.
+        Nonlinear term :math:`N(u) = u - u^3`.
 
     Notes
     -----
-    Boundary points (first and last) are removed from the linear operator,
-    as they are typically treated separately in boundary value problems.
+    Boundary points are excluded from ``lin_op`` since Dirichlet or
+    Neumann boundary conditions are typically enforced separately.
     """
     d2_cheb_matrix = d_cheb_matrix.dot(d_cheb_matrix)
     lin_op = epsilon * d2_cheb_matrix + np.eye(*d2_cheb_matrix.shape)
-    lin_op = lin_op[1:-1, 1:-1]  # Remove boundary points
+    lin_op = lin_op[1:-1, 1:-1]
 
     def nl_func(u: np.ndarray) -> np.ndarray:
-        return x[1:-1] - np.power(u + x[1:-1], 3)
+        return u - np.power(u, 3)
 
     return lin_op, nl_func

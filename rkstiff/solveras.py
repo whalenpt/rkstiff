@@ -574,7 +574,6 @@ class BaseSolverAS(BaseSolver):
 
         - The evolution proceeds until :math:`t \geq t_f`, automatically adjusting step sizes as needed.
         - Stored data is accessible via :attr:`t` and :attr:`u`.
-        - Logs detailed progress every 100 steps.
 
         Example
         -------
