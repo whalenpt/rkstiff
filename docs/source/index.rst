@@ -6,7 +6,8 @@ Welcome to rkstiff's documentation!
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Contents
+   :hidden:
 
    api
 
@@ -15,4 +16,3 @@ Indices and tables
 
 * :ref:`genindex`
 * :ref:`modindex`
-* :ref:`search`

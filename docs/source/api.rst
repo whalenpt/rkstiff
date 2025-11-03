@@ -2,7 +2,7 @@ API Reference
 =============
 
 This page provides a complete reference for the rkstiff package, organized by functionality.
-
+   
 Core Solver
 -----------
 

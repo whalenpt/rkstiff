@@ -36,11 +36,12 @@ version = "1.0"
 # -- General configuration ---------------------------------------------------
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx.ext.napoleon",
-    "sphinx.ext.viewcode",
-    "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
+    "sphinx.ext.napoleon",
     "sphinx.ext.mathjax",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.githubpages",
+    "sphinx.ext.intersphinx",
     "sphinx_autodoc_typehints",
     "myst_parser",
 ]
@@ -52,8 +53,7 @@ source_suffix = {
 
 master_doc = "index"
 
-templates_path = ["_templates"]
-html_static_path = []
+templates_path = []
 
 exclude_patterns = [
     "_build",
@@ -83,10 +83,10 @@ nitpicky = False
 html_theme = "sphinx_rtd_theme"
 
 html_theme_options = {
-    "navigation_depth": 2,  # Reduced from 4
     "collapse_navigation": False,
     "sticky_navigation": True,
     "includehidden": True,
+    "navigation_depth": 3,
     "titles_only": False,
 }
 
@@ -95,6 +95,12 @@ html_short_title = project
 html_show_sourcelink = True
 html_show_sphinx = True
 html_show_copyright = True
+
+html_js_files = [
+    "custom.js",
+]
+
+html_static_path = ["_static"]
 
 # -- Autodoc options ---------------------------------------------------------
 autodoc_default_options = {
@@ -178,6 +184,7 @@ def skip_inherited_exception_members(app, what, name, obj, skip, options):
     }:
         return True
     return skip
+
 
 def setup(app):
     app.connect("autodoc-skip-member", skip_inherited_exception_members)
