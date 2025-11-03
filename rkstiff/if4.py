@@ -116,10 +116,7 @@ class _IF4Diagonal:
         self._k = self._EL * u + h * self._EL2 * self._NL3
         self._NL4 = self.nl_func(self._k)
         self._k = self._EL * u + h * (
-            self._EL * self._NL1 / 6.0
-            + self._EL2 * self._NL2 / 3.0
-            + self._EL2 * self._NL3 / 3.0
-            + self._NL4 / 6.0
+            self._EL * self._NL1 / 6.0 + self._EL2 * self._NL2 / 3.0 + self._EL2 * self._NL3 / 3.0 + self._NL4 / 6.0
         )
         self._NL1 = self.nl_func(self._k)  # FSAL (First Same As Last)
         return self._k

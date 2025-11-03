@@ -86,9 +86,7 @@ class BaseSolver(ABC):
         self,
         lin_op: np.ndarray,
         nl_func: Callable[[np.ndarray], np.ndarray],
-        loglevel: Union[
-            Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int
-        ] = "WARNING",
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ) -> None:
         """
         Initialize a base solver instance.

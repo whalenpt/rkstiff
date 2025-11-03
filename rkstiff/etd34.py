@@ -44,7 +44,7 @@ class _Etd34Diagonal:  # pylint: disable=too-few-public-methods
         lin_op: np.ndarray,
         nl_func: Callable[[np.ndarray], np.ndarray],
         etd_config: ETDConfig,
-        logger: logging.Logger = logging.getLogger(__name__)
+        logger: logging.Logger = logging.getLogger(__name__),
     ) -> None:
         """
         Initialize ETD34 diagonal system strategy.

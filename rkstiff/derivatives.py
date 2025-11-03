@@ -3,7 +3,7 @@ Spectral differentiation utilities for Fourier and Chebyshev grids
 ==================================================================
 
 This module provides high-accuracy derivative operators using
-spectral methods suitable for **stiff PDE solvers**.  
+spectral methods suitable for **stiff PDE solvers**.
 Each function supports NumPy arrays and implements differentiation
 via spectral transforms or Chebyshev differentiation matrices.
 
@@ -51,7 +51,7 @@ def dx_rfft(kx: np.ndarray, u: np.ndarray, n: int = 1) -> np.ndarray:
     Parameters
     ----------
     kx : np.ndarray
-        Wavenumbers of the spectral grid.  
+        Wavenumbers of the spectral grid.
         For an input size :math:`N`, ``kx`` must have size :math:`N/2 + 1`.
         Typically generated via ``np.fft.rfftfreq(N, d=dx) * 2π``.
     u : np.ndarray

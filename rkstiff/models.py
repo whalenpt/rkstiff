@@ -5,7 +5,7 @@ Common benchmark models and initial conditions for stiff PDE solvers
 
 This module provides utilities for constructing canonical **test equations**
 used to validate time-integration schemes such as exponential, integrating-factor,
-and Runge–Kutta methods.  
+and Runge–Kutta methods.
 
 Each model supplies:
   - The governing **PDE**
@@ -15,8 +15,8 @@ Each model supplies:
 Models included
 ---------------
 
-- **Korteweg–de Vries (KdV)** equation — soliton dynamics  
-- **Viscous Burgers** equation — nonlinear advection–diffusion  
+- **Korteweg–de Vries (KdV)** equation — soliton dynamics
+- **Viscous Burgers** equation — nonlinear advection–diffusion
 - **Allen–Cahn** equation — bistable phase-field dynamics
 """
 
@@ -27,6 +27,7 @@ import numpy as np
 # ---------------------------------------------------------------------------
 #  KORTEWEG–DE VRIES EQUATION
 # ---------------------------------------------------------------------------
+
 
 def kdv_soliton(x: np.ndarray, ampl: float = 0.5, x0: float = 0.0, t: float = 0.0) -> np.ndarray:
     r"""
@@ -148,6 +149,7 @@ def kdv_ops(kx: np.ndarray) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarr
 #  VISCOUS BURGERS EQUATION
 # ---------------------------------------------------------------------------
 
+
 def burgers_ops(kx: np.ndarray, mu: float) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarray]]:
     r"""
     Return the linear and nonlinear operators for the **viscous Burgers equation**.
@@ -195,6 +197,7 @@ def burgers_ops(kx: np.ndarray, mu: float) -> Tuple[np.ndarray, Callable[[np.nda
 # ---------------------------------------------------------------------------
 #  ALLEN–CAHN EQUATION
 # ---------------------------------------------------------------------------
+
 
 def allen_cahn_ops(
     x: np.ndarray, d_cheb_matrix: np.ndarray, epsilon: float = 0.01
