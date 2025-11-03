@@ -1,6 +1,8 @@
-try:
-    import importlib_metadata as metadata
-except ModuleNotFoundError:
-    import importlib.metadata as metadata
+"""rkstiff package initialization."""
 
-__version__ = metadata.version("rkstiff")
+import logging
+from .__version__ import version as __version__
+
+# Prevent "No handlers could be found" warnings when rkstiff is imported by
+# applications that have not configured logging.
+logging.getLogger(__name__).addHandler(logging.NullHandler())

@@ -2,11 +2,11 @@ __pycache__
 rkstiff/orderfuncs.py
 rkstiff/rkstiff.egg-info
 rkstiff.egg-info
+rkstiff/__version__.py
 build
 dist
 demos/.ipynb_checkpoints
 .eggs
-tox.ini
 .tox*
 conda_build/outputdir
 .coverage
@@ -14,5 +14,11 @@ log
 lib
 bin
 pyvenv*
+*venv*
+myenv
 .vscode
+coverage.xml
+docs/source/_autosummary
+
+
 

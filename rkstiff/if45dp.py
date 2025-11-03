@@ -1,80 +1,78 @@
+"""Integrating factor adaptive step solver of 5th order with 4rd order embedding."""
+
+from typing import Callable, Literal, Union
 import numpy as np
-from typing import Callable
-from rkstiff.solver import StiffSolverAS
+from .solveras import SolverConfig, BaseSolverAS
 
 
-class IF45DP(StiffSolverAS):
+class IF45DP(BaseSolverAS):
     """
-    Integrating factor adaptive step solver of 5th order with 4rd order embedding.
-    Based on underlying Dormand-Prince method.
+    Fifth-order Integrating Factor solver with adaptive stepping (Dormand-Prince).
 
-    ATTRIBUTES
-    __________
-    linop : np.array
-    NLfunc : function
-    t : time-array stored with evolve function call
-    u : output-array stored with evolve function call
-    logs : array of info stored related to the solver
+    Implements the IF(4,5) scheme based on the Dormand-Prince Runge-Kutta method
+    with an embedded fourth-order method for error estimation. Designed for
+    diagonal stiff systems of the form dU/dt = L*U + NL(U).
 
-    StiffSolverAS Parameters (see StiffSolverAS class in solver module)
-    ________________________
-    epsilon : float
-    incrF : float
-    decrF : float
-    safetyF : float
-    adapt_cutoff : float
-    minh : float
+    Parameters
+    ----------
+    lin_op : np.ndarray
+        Linear operator L (must be 1D array for diagonal systems).
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function nl_func(U).
+    config : SolverConfig, optional
+        Solver configuration for adaptive stepping parameters.
+    loglevel : str or int, optional
+        Logging level.
+
+    Attributes
+    ----------
+    t : np.ndarray
+        Time values from most recent call to evolve().
+    u : np.ndarray
+        Solution array from most recent call to evolve().
+    logs : list
+        Log messages recording solver operations.
+
+    Raises
+    ------
+    ValueError
+        If lin_op is not a 1D array (non-diagonal system).
+
+    Notes
+    -----
+    This solver only supports diagonal linear operators. For non-diagonal systems,
+    use IF34, ETD34, or ETD35 instead.
     """
 
     def __init__(
         self,
-        linop: np.ndarray,
-        NLfunc: Callable[[np.ndarray], np.ndarray],
-        epsilon: float = 1e-4,
-        incrF: float = 1.25,
-        decrF: float = 0.85,
-        safetyF: float = 0.8,
-        adapt_cutoff: float = 0.01,
-        minh: float = 1e-16,
-        diagonalize: bool = False,
-    ):
+        lin_op: np.ndarray,
+        nl_func: Callable[[np.ndarray], np.ndarray],
+        config: SolverConfig = SolverConfig(),
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
+    ) -> None:
         """
-        INPUTS
-        ______
+        Initialize the IF45DP adaptive solver.
 
-        linop : np.array
-            Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D numpy array (matrix)
-            or a 1D array (diagonal system). L can be either real-valued or complex-valued.
-
-        NLfunc : function
-            Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a complex or real-valued function.
-
-        diagonalize : bool, optional
-            Diagonalize the linear operator (matrix) and solve the diagonalized system
-
-        StiffSolverAS variables: epsilon, incrF, decrF, safetyF, adapt_cutoff, minh
-                        (see StiffSolverAS documentation from solver module)
+        Parameters
+        ----------
+        lin_op : np.ndarray
+            Diagonal linear operator (1D array).
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function.
+        config : SolverConfig, optional
+            Solver configuration.
+        loglevel : str or int, optional
+            Logging level.
         """
-
-        super().__init__(
-            linop,
-            NLfunc,
-            epsilon=epsilon,
-            incrF=incrF,
-            decrF=decrF,
-            safetyF=safetyF,
-            adapt_cutoff=adapt_cutoff,
-            minh=minh,
-        )
-        if len(linop.shape) > 1:
-            raise Exception(
-                "IF45DP only handles 1D linear operators (diagonal systems): try IF34,ETD34, or ETD35"
-            )
+        super().__init__(lin_op, nl_func, config=config, loglevel=loglevel)
+        if len(lin_op.shape) > 1:
+            raise ValueError("IF45DP only handles 1D linear operators (diagonal systems): try IF34,ETD34, or ETD35")
         self._EL15, self._EL310, self._EL45, self._EL89, self._EL = [
-            np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(5)
+            np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(5)
         ]
         self._NL1, self._NL2, self._NL3, self._NL4, self._NL5, self._NL6, self._NL7 = [
-            np.zeros(self.linop.shape[0], dtype=np.complex128) for _ in range(7)
+            np.zeros(self.lin_op.shape[0], dtype=np.complex128) for _ in range(7)
         ]
         (
             self._a21,
@@ -87,47 +85,64 @@ class IF45DP(StiffSolverAS):
             self._a52,
             self._a53,
             self._a54,
-        ) = [np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(10)]
+        ) = [np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(10)]
         self._a61, self._a62, self._a63, self._a64, self._a65 = [
-            np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(5)
+            np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(5)
         ]
         self._a71, self._a73, self._a74, self._a75 = [
-            np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(4)
+            np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(4)
         ]
         self._a76 = 0.0
-        self._r1, self._r3, self._r5, self._r5 = [
-            np.zeros(shape=self.linop.shape, dtype=np.complex128) for _ in range(4)
+        self._r1, self._r3, self._r4, self._r5 = [
+            np.zeros(shape=self.lin_op.shape, dtype=np.complex128) for _ in range(4)
         ]
         self._r6, self._r7 = 0.0, 0.0
-        self._k = np.zeros(self.linop.shape[0], dtype=np.complex128)
-        self._err = np.zeros(self.linop.shape[0], dtype=np.complex128)
+        self._k = np.zeros(self.lin_op.shape[0], dtype=np.complex128)
+        self._err = np.zeros(self.lin_op.shape[0], dtype=np.complex128)
         self._h_coeff = None
-        self.__N1_init = False
+        self.__n1_init = False
 
-    def _reset(self):
+    def _reset(self) -> None:
+        """
+        Reset solver to its initial state.
+        """
         self._h_coeff = None
-        self.__N1_init = False
+        self.__n1_init = False
 
-    def _updateStages(self, u, h):
-        self._updateCoeffs(h)
-        # First is same as last principle
-        if not self.__N1_init:
-            self._NL1 = self.NLfunc(u)
-            self.__N1_init = True
+    def _update_stages(self, u: np.ndarray, h: float) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Compute next state and error estimate using the 7-stage Dormand-Prince scheme.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current solution vector.
+        h : float
+            Time step size.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            Updated solution vector and error estimate.
+
+        Notes
+        -----
+        Uses the "First Same As Last" (FSAL) principle where the last stage
+        evaluation becomes the first evaluation of the next step.
+        """
+        self._update_coeffs(h)
+        if not self.__n1_init:
+            self._NL1 = self.nl_func(u)
+            self.__n1_init = True
         elif self._accept:
             self._NL1 = self._NL7.copy()
 
         self._k = self._EL15 * u + self._a21 * self._NL1
-        self._NL2 = self.NLfunc(self._k)
+        self._NL2 = self.nl_func(self._k)
         self._k = self._EL310 * u + self._a31 * self._NL1 + self._a32 * self._NL2
-        self._NL3 = self.NLfunc(self._k)
-        self._k = (
-            self._EL45 * u
-            + self._a41 * self._NL1
-            + self._a42 * self._NL2
-            + self._a43 * self._NL3
-        )
-        self._NL4 = self.NLfunc(self._k)
+        self._NL3 = self.nl_func(self._k)
+        self._k = self._EL45 * u + self._a41 * self._NL1 + self._a42 * self._NL2 + self._a43 * self._NL3
+        self._NL4 = self.nl_func(self._k)
         self._k = (
             self._EL89 * u
             + self._a51 * self._NL1
@@ -135,7 +150,7 @@ class IF45DP(StiffSolverAS):
             + self._a53 * self._NL3
             + self._a54 * self._NL4
         )
-        self._NL5 = self.NLfunc(self._k)
+        self._NL5 = self.nl_func(self._k)
         self._k = (
             self._EL * u
             + self._a61 * self._NL1
@@ -144,7 +159,7 @@ class IF45DP(StiffSolverAS):
             + self._a64 * self._NL4
             + self._a65 * self._NL5
         )
-        self._NL6 = self.NLfunc(self._k)
+        self._NL6 = self.nl_func(self._k)
         self._k = (
             self._EL * u
             + self._a71 * self._NL1
@@ -153,7 +168,7 @@ class IF45DP(StiffSolverAS):
             + self._a75 * self._NL5
             + self._a76 * self._NL6
         )
-        self._NL7 = self.NLfunc(self._k)
+        self._NL7 = self.nl_func(self._k)
         self._err = (
             self._r1 * self._NL1
             + self._r3 * self._NL3
@@ -165,12 +180,28 @@ class IF45DP(StiffSolverAS):
 
         return self._k, self._err
 
-    def _updateCoeffs(self, h):
-        # Update coefficients if step size h changed
+    def _update_coeffs(self, h: float) -> None:
+        """
+        Update IF45DP coefficients based on step size h.
+
+        Computes all exponential coefficients and Runge-Kutta weights for the
+        Dormand-Prince integrating factor method. Coefficients are cached and
+        only recomputed when the step size changes.
+
+        Parameters
+        ----------
+        h : float
+            Time step size.
+
+        Notes
+        -----
+        The method uses 7 stages with specific fractional exponentials
+        (1/5, 3/10, 4/5, 8/9, etc.) based on the Dormand-Prince tableau.
+        """
         if h == self._h_coeff:
             return
         self._h_coeff = h
-        z = h * self.linop
+        z = h * self.lin_op
         self._EL15 = np.exp(z / 5)
         self._EL310 = np.exp(3 * z / 10)
         self._EL45 = np.exp(4 * z / 5)
@@ -204,8 +235,15 @@ class IF45DP(StiffSolverAS):
         self._r5 = -17253 * h * EL19 / 339200.0
         self._r6 = 22 * h / 525.0
         self._r7 = -h / 40.0
+        self.logger.debug("IF45 coefficients updated for step size h=%s", h)
 
-        self.logs.append("IF45DP coefficients updated")
+    def _q(self) -> int:
+        """
+        Return order for computing suggested step size.
 
-    def _q(self):
+        Returns
+        -------
+        int
+            Method order (5 for this fifth-order method).
+        """
         return 5

@@ -1,566 +1,183 @@
+r"""
+Base solver infrastructure for all rkstiff PDE solvers
+==================================================================
+
+Base solver infrastructure for exponential time-differencing (ETD)
+and related stiff integrators.
+
+This module defines the :class:`BaseSolver` abstract base class, which
+provides common initialization, logging, and validation logic for all
+solver subclasses (e.g., :class:`rkstiff.etd4.ETD4`,
+:class:`rkstiff.etd5.ETD5`).
+
+It standardizes handling of the linear operator :math:`\mathcal{L}`,
+the nonlinear function :math:`\mathcal{N}(\mathbf{U})`, and logging
+verbosity across all stiff PDE solvers.
+"""
+
 from abc import ABC, abstractmethod
+from typing import Callable, Union, Literal
 import numpy as np
-from typing import Tuple, Optional
+from .util.loghelper import get_solver_logger, set_log_level, get_level_name
 
 
-class StiffSolverAS(ABC):
+class BaseSolver(ABC):
+    r"""
+    Abstract base class for all stiff solvers.
+
+    Provides shared functionality for initializing linear and nonlinear
+    components, configuring logging, and managing solution state.
+
+    Subclasses (such as :class:`ETD4` or :class:`ETD5`) implement
+    specific numerical time-stepping schemes by defining the abstract
+    methods :meth:`reset` and :meth:`_reset`.
+
+    Parameters
+    ----------
+    lin_op : np.ndarray
+        Linear operator :math:`\mathcal{L}` defining the stiff part of
+        the system. Can be either:
+
+        * 1D array — representing a diagonal operator
+        * 2D square array — representing a full linear operator matrix
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function :math:`\mathcal{N}(\mathbf{U})` returning
+        the nonlinear contribution for a given solution vector.
+    loglevel : str or int, optional
+        Logging level. Accepts either a string
+        (``'DEBUG'``, ``'INFO'``, ``'WARNING'``, ``'ERROR'``,
+        ``'CRITICAL'``) or the corresponding integer constant from
+        :mod:`logging`. Default is ``'WARNING'``.
+
+    Attributes
+    ----------
+    lin_op : np.ndarray
+        Linear operator associated with the stiff system.
+    nl_func : Callable[[np.ndarray], np.ndarray]
+        Nonlinear function :math:`\mathcal{N}(\mathbf{U})`.
+    logger : logging.Logger
+        Logger instance configured for the solver.
+    t : list of float
+        Time points generated during the last call to :meth:`evolve`.
+    u : list of np.ndarray
+        Solution vectors corresponding to time points in :attr:`t`.
+    _diag : bool
+        Indicates whether the linear operator is diagonal (True) or
+        full matrix (False).
+
+    Raises
+    ------
+    ValueError
+        If ``lin_op`` is not 1D or a 2D square matrix.
+
+    Notes
+    -----
+    This base class is not meant to be instantiated directly.
+    Derived solvers should inherit from :class:`BaseSolver` and
+    implement both :meth:`reset` and :meth:`_reset` to define
+    problem-specific initialization and internal state clearing.
+
+    .. tip::
+       The base class automatically detects whether ``lin_op`` is
+       diagonal, allowing subclasses to optimize accordingly.
     """
-    Base class for an adaptive-step Runge-Kutta solver for stiff systems of the
-    type dtU = LU + NL(U), where L is a linear operator and NL is a non-linear
-    function.
-
-    ATTRIBUTES
-    __________
-
-    linop : np.array
-        Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D
-        numpy array (matrix) or a 1D array (diagonal system). L can be either
-        real-valued or complex-valued.
-
-    NLfunc : function
-        Nonlinear function (NL(U)) in the system dtU = LU + NL(U).
-        Can be a complex or real-valued function.
-
-    u : list
-        List of np.arrays corresponding to the propagated U in the system
-        dtU = LU + NL(U) using the evolve function
-
-    t : list
-        List of times corresponding to the propagated U in the system
-        dtU = LU + NL(U) using the evolve function
-
-    logs : list
-        List of log messages
-
-    incrF : float, > 1.0
-        Increment factor for increasing the step size utilized in propagating a
-        system. After each step in the propagation a 'optimal' step size of
-        h_opt is computed and compared vs the current step size h_current. If
-        h_opt > incrF*h_current, then the solver will suggest h_opt as the next
-        step size, otherwise it will continue using the current step size. This
-        parameter is used such that very small changes to the step size are
-        avoided and hence potentially expensive evaluations of the RK
-        coefficients are avoided.
-
-    decrF : float, < 1.0
-        Decrement factor for decreasing the step size utilized in propagating
-        a system. After each step in the propagation a 'optimal' step size of
-        h_opt is computed and compared vs the current step size h_current. If
-        h_opt > decrF*h_current and h_opt < h_current, then the solver will
-        suggest h_new = decrF*h_current as the next step size. This parameter
-        is used such that very small changes to the step size are avoided and
-        hence potentially expensive evaluations of the RK coefficients are
-        avoided.
-
-    epsilon : float
-        Relative error tolerance for system. Solver will suggest step sizes in
-        an attempt to keep the two-norm relative error of the system less than
-        this value. This is used as a tuning parameter in the solver and the
-        relative-error is not strictly enforced! In general, smaller epsilon
-        results in smaller relative-error but due to the nature of the solvers
-        utilized, the adaptive stepping is prone to be less than ideal and
-        errors can often be larger than the specified epsilon tolerance level.
-
-    safetyF : float
-        Safety factor for adaptive stepping. The 'optimal' step size computed
-        using the embedded RK methods is multiplied by this factor to try to
-        enforce the relative-error to be below the epsilon relative-error
-        threshold.  The relative-error computed for these solvers based on
-        embedded methods is an inaccurate estimate and so this saftey factor
-        can be used to tune the system error to be more inline with actual
-        errors.
-
-    adapt_cutoff : float < 1
-        Limits values used in the computation of the suggested step size to
-        those with |u| > adapt_cutoff*max(|u|). To include all values in the
-        calculation of step size: set this to a very small number.
-
-    minh : float
-        Minimum step size that can be taken by the solver before throwing an
-        exception
-
-
-    METHODS
-    _______
-
-    step(u,h_suggest):
-        Propagates a given array of u one step using an RK method for stiff PDEs.
-
-    evolve(u,t0,tf,h_init=None,store_data=True,store_freq=1)
-        Propagates an initial value (array) of u given at time t0
-        until a final time tf is reached using a RK method for stiff PDEs
-
-    reset()
-        Resets solver including erasing stored variables such as self.t,
-        self.u, and self.logs
-
-    """
-
-    MAX_LOOPS = 50
-    MAX_S = 4  # maximum step increase factor
-    MIN_S = 0.25  # minimum step decrease factor
 
     def __init__(
         self,
-        linop,
-        NLfunc,
-        epsilon=1e-4,
-        incrF=1.25,
-        decrF=0.85,
-        safetyF=0.8,
-        adapt_cutoff=0.01,
-        minh=1e-16,
-    ):
+        lin_op: np.ndarray,
+        nl_func: Callable[[np.ndarray], np.ndarray],
+        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
+    ) -> None:
         """
+        Initialize a base solver instance.
 
-        linop : np.array
-            Linear operator (L) in the system dtU = LU + NL(U). Can be either a
-            2D numpy array (matrix) or a 1D array (diagonal system). L can be
-            either real-valued or complex-valued.
+        Sets up internal attributes, validates the shape of the linear
+        operator, and configures logging behavior.
 
-        NLfunc : function
-            Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a
-            complex or real-valued function.
+        Parameters
+        ----------
+        lin_op : np.ndarray
+            Linear operator. Must be 1D (diagonal) or a 2D square matrix.
+        nl_func : Callable[[np.ndarray], np.ndarray]
+            Nonlinear function mapping the solution vector to its
+            nonlinear component.
+        loglevel : str or int, optional
+            Logging verbosity level. Default is ``'WARNING'``.
 
-        epsilon : float
-            Relative error tolerance for system. Solver will suggest step sizes
-            in an attempt to keep the two-norm relative error of the system
-            less than this value. This is used as a tuning parameter in the
-            solver and the relative-error is not strictly enforced! In general,
-            smaller epsilon results in smaller relative-error but due to the
-            nature of the solvers utilized, the adaptive stepping is prone to
-            be less than ideal and errors can often be larger than the
-            specified epsilon tolerance level.
-
-        incrF : float, > 1.0
-            Increment factor for increasing the step size utilized in
-            propagating a system. After each step in the propagation a
-            'optimal' step size of h_opt is computed and compared vs the
-            current step size h_current. If h_opt > incrF*h_current, then the
-            solver will suggest h_opt as the next step size, otherwise it will
-            continue using the current step size. This parameter is used such
-            that very small changes to the step size are avoided and hence
-            potentially expensive evaluations of the RK coefficients are avoided.
-
-        decrF : float, < 1.0
-            Decrement factor for decreasing the step size utilized in
-            propagating a system. After each step in the propagation a 'optimal'
-            step size of h_opt is computed and compared vs the current step size
-            h_current. If h_opt > decrF*h_current and h_opt < h_current, then
-            the solver will suggest h_new = decrF*h_current as the next step
-            size. This parameter is used such that very small changes to the
-            step size are avoided and hence potentially expensive evaluations
-            of the RK coefficients are avoided.
-
-        safetyF : float
-            Safety factor for adaptive stepping. The 'optimal' step size
-            computed using the embedded RK methods is multiplied by this factor
-            to try to enforce the relative-error to be below the epsilon
-            relative-error threshold. The relative-error computed for these
-            solvers based on embedded methods is an inaccurate estimate and so
-            this saftey factor can be used to tune the system error to be more
-            inline with actual errors.
-
-        adapt_cutoff : float < 1
-            Limits values used in the computation of the suggested step size to
-            those with |u| > adapt_cutoff*max(|u|). To include all values in
-            the calculation of step size: set this to a very small number.
-
-        minh : float
-            Minimum step size that can be taken by the solver before throwing
-            an exception
+        Raises
+        ------
+        ValueError
+            If ``lin_op`` is not 1D or not a square 2D matrix.
         """
+        self.lin_op = lin_op
+        self.nl_func = nl_func
 
-        self.linop = linop
-        self.NLfunc = NLfunc
+        # Create and configure logger
+        self.logger = get_solver_logger(self.__class__, loglevel)
+        self.logger.info("Initialized %s solver", self.__class__.__name__)
+
+        # Storage for time evolution
         self.t, self.u = [], []
 
-        dims = linop.shape
-        self._diag = True
-        if len(dims) > 2:
-            raise ValueError("linop must be a 1D or 2D array")
-        elif len(dims) == 2:
-            if dims[0] != dims[1]:
-                raise ValueError("linop must be a square matrix")
-            self._diag = False
+        # Validate shape and determine if diagonal
+        dims = lin_op.shape
+        if len(dims) not in (1, 2):
+            raise ValueError("lin_op must be 1D or 2D")
+        if len(dims) == 2 and dims[0] != dims[1]:
+            raise ValueError("lin_op must be a square matrix")
 
-        self.epsilon = epsilon
-        if self.epsilon <= 0:
-            raise ValueError("epsilon must be positive but is {}".format(self.epsilon))
+        self._diag = len(dims) == 1
+        self.logger.debug("Linear operator shape: %s, diagonal: %s", dims, self._diag)
 
-        self.incrF = incrF
-        if self.incrF <= 1.0:
-            raise ValueError("incrF must be > 1.0 but is {}".format(self.incrF))
-
-        self.decrF = decrF
-        if self.decrF >= 1.0:
-            raise ValueError("decrF must be < 1.0 but is {}".format(self.decrF))
-
-        self.safetyF = safetyF
-        if self.safetyF > 1.0:
-            raise ValueError("safetyF must be <= 1.0 but is {}".format(self.safetyF))
-
-        self.adapt_cutoff = adapt_cutoff
-        if self.adapt_cutoff >= 1.0:
-            raise ValueError("adapt_cutoff must be < 1.0 but is {}".format(self.adapt_cutoff))
-
-        self.minh = minh
-        if self.minh <= 0:
-            raise ValueError("minh must be positive but is {}".format(self.minh))
-
-        self.__t0, self.__tf, self.__tc = 0, 0, 0
-        self.__h_prev = 0.0
-        self._accept = False
-        self.t, self.u, self.logs = [], [], []
-
-    def reset(self):
-        """Resets solver to its initial state (such that its ready to call the
-        functions evolve or step on a new input). Erases stored variables
-        such as self.t, self.u, and self.logs.
+    # ------------------------------------------------------------------
+    # Logging utilities
+    # ------------------------------------------------------------------
+    def set_loglevel(self, loglevel: Union[str, int]) -> None:
         """
-        self.t, self.u, self.logs = [], [], []
-        self.__t0, self.__tf, self.__tc = 0, 0, 0
-        self.__h_prev = 0.0
-        self._accept = False
-        self._reset()
+        Adjust the solver's logging verbosity at runtime.
 
-    # reset solver dependent variables of the subclass
+        Parameters
+        ----------
+        loglevel : str or int
+            New logging level. Accepts standard string levels or numeric
+            constants from :mod:`logging`.
+
+        Examples
+        --------
+        >>> solver.set_loglevel("INFO")
+        >>> solver.set_loglevel(logging.DEBUG)
+        """
+        set_log_level(self.logger, loglevel)
+        self.logger.info("Log level changed to %s", get_level_name(self.logger.level))
+
+    # ------------------------------------------------------------------
+    # Abstract interface
+    # ------------------------------------------------------------------
     @abstractmethod
-    def _reset(self):
-        pass
+    def reset(self) -> None:
+        """
+        Reset the solver to its initial state.
 
-    # update RK stages, returns u_{n+1} given u_{n}, to be overwritten by subclass
+        Clears stored time and solution arrays, restoring the solver
+        to its post-initialization condition. Typically invoked before
+        restarting a simulation or integrating a new problem.
+
+        Notes
+        -----
+        Subclasses should call ``super().reset()`` if extending this
+        method, and implement :meth:`_reset` to clear any
+        solver-specific caches.
+        """
+
     @abstractmethod
-    def _updateStages(self, u, h):
-        pass
-
-    # q value in computation of suggested step size, to be overwritten by subclass
-    @abstractmethod
-    def _q(self):
-        pass
-
-    def step(self, u: np.ndarray, h_suggest: float) -> Tuple[np.ndarray, float, float]:
+    def _reset(self) -> None:
         """
-        Propagates a given array of u one step using an RK method for stiff
-        PDEs.
+        Reset solver-specific internal state.
 
-        INPUTS:
-            u : np.array
-                input to propagate
-            h_suggest : float
-                suggested step size; may be reduced to achieve the desired
-                accuracy as specified by the relative error threshold variable
-                'epsilon'
+        Must be implemented by subclasses to clear any cached
+        coefficients, temporary arrays, or integration-specific
+        parameters.
 
-        OUTPUTS:
-            unew : np.array
-                result of input u propagated one step in the RK algorithm
-            h : float
-                actual step size taken in the algorithm (may be less than
-                h_suggest)
-            h_suggest : float
-                step size the algorithm suggests you take for the next step
+        This method is typically invoked by :meth:`reset` and should
+        not be called directly by users.
         """
-
-        h = h_suggest
-        assert h >= 0.0
-        numloops = 0
-        while True:
-            unew, err = self._updateStages(u, h)
-            self.__h_prev = h
-            # Compute step size change factor s
-            s = self._computeS(unew, err)
-            # If s is less than 1, inf, or nan, reject step and reduce step size
-            if np.isinf(s) or np.isnan(s) or s < 1.0:
-                h = self._rejectStepSize(s, h)
-            # If s is bigger than 1 accept h and the step
-            else:
-                h_suggest = self._acceptStepSize(s, h)
-                return unew, h, h_suggest
-            numloops += 1
-            if numloops > self.MAX_LOOPS:
-                failure_str = """Solver failed: adaptive step made too many attempts to find a step
-                                 size with an acceptible amount of error. """
-                self.logs.append(failure_str)
-                raise Exception(failure_str)
-            if h < self.minh:
-                failure_str = """Solver failed: adaptive step reached minimum step size """
-                self.logs.append(failure_str)
-                raise Exception(failure_str)
-
-        raise Exception("Propagation Failed")
-
-    # helper function for computing coefficient s used in generating suggested step size
-    def _computeS(self, u, err):
-        # Use adapt_cutoff to ignore small modes/values in the computation of the step size
-        magu = np.abs(u)
-        idx = magu / magu.max() > self.adapt_cutoff
-        tol = self.epsilon * np.linalg.norm(u[idx])
-        s = self.safetyF * np.power(tol / np.linalg.norm(err[idx]), 1.0 / self._q())
-        return s
-
-    # helper function computing suggested step size if step is rejected
-    def _rejectStepSize(self, s, h):
-        self._accept = False
-        # Check that s is a number
-        if np.isinf(s) or np.isnan(s):
-            self.logs.append("inf or nan number encountered: reducing step size to {}!".format(h))
-            return self.MIN_S * h
-
-        s = np.max([s, self.MIN_S])  # dont let s be too small
-        s = np.min([s, self.decrF])  # dont let s be too close to 1
-        self.logs.append("step rejected with s = {:.2f}".format(s))
-        hnew = s * h
-        self.logs.append("reducing step size to {}".format(hnew))
-        return hnew
-
-    # helper function computing suggested step size if step is accepted
-    def _acceptStepSize(self, s, h):
-        self._accept = True
-        s = np.min([s, self.MAX_S])  # dont let s be too big
-        self.logs.append("step accepted with s = {:.2f}".format(s))
-        # if s much larger than 1, increase the step size
-        if s > self.incrF:
-            h_suggest = s * h
-            self.logs.append("increasing step size to {}".format(h_suggest))
-            return h_suggest
-        return h
-
-    def evolve(
-        self,
-        u: np.ndarray,
-        t0: float,
-        tf: float,
-        h_init: Optional[float] = None,
-        store_data: bool = True,
-        store_freq: int = 1,
-    ) -> np.ndarray:
-        """
-        This function propagates an initial value (array) of u given at time t0
-        until a final time tf is reached using a RK method for stiff PDEs
-
-        INPUTS:
-            u : np.array
-                initial value input
-            t0 : float
-                initial time at which u is evaluated
-            tf : float
-                end time at which propagation stops
-            h_init : float, optional
-                starting step size for RK method (default of (tf-t0)/100 if not
-                specified)
-            store_data : bool, optional
-                value that determines whether to keep track of the propagation
-                array u at each step of the RK method. Values stored in self.u
-                and self.t
-            store_freq : int, optional
-                store propagation data in self.t and self.u after every
-                [store_freq] step is taken
-        OUTPUTS:
-            u : np.array
-                final value of the input propagated from t0 to tf
-        """
-
-        self.reset()
-        self.__t0, self.__tf, self.__tc = t0, tf, t0
-
-        if store_data:
-            self.t.append(t0)
-            self.u.append(u)
-
-        # Set initial step size if none given
-        if h_init is None:
-            h_init = (self.__tf - self.__t0) / 100.0
-        h = h_init
-
-        # Make sure step size isn't larger than entire propagation time
-        if self.__tc + h > self.__tf:
-            h = self.__tf - self.__tc
-
-        step_count = 0
-        while self.__tc < self.__tf:
-            u, h, h_suggest = self.step(u, h)
-            self.__tc += h
-            step_count += 1
-            if self.__tc + h_suggest > self.__tf:
-                h = self.__tf - self.__tc
-            else:
-                h = h_suggest
-
-            if store_data and (step_count % store_freq == 0):
-                self.t.append(self.__tc)
-                self.u.append(u)
-
-        return u
-
-
-class StiffSolverCS(ABC):
-    """
-    Base class for a constant-step Runge-Kutta solver for stiff systems of the
-    type dtU = LU + NL(U), where L is a linear operator and NL is a non-linear
-    function.
-
-    ATTRIBUTES
-    __________
-
-    linop : np.array
-        Linear operator (L) in the system dtU = LU + NL(U). Can be either a 2D
-        numpy array (matrix) or a 1D array (diagonal system). L can be either
-        real-valued or complex-valued.
-
-    NLfunc : function
-        Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a
-        complex or real-valued function.
-
-    u : list
-        List of np.arrays corresponding to the propagated U in the system
-        dtU = LU + NL(U) using the evolve function
-
-    t : list
-        List of times corresponding to the propagated U in the system
-        dtU = LU + NL(U) using the evolve function
-
-    METHODS
-    _______
-
-    step(u,h):
-        Propagates a given array of u, taking a step of size h, using an RK
-        method for stiff PDEs.
-
-    evolve(u,t0,tf,h,store_data=True,store_freq=1)
-        Propagates an initial value (array) of u given at time t0
-        until a final time tf is reached using a RK method for stiff PDEs.
-        Solver will always take a step of size h
-
-    reset()
-        Resets solver including erasing stored variables such as self.t,
-        self.u, and self.logs
-    """
-
-    def __init__(self, linop, NLfunc):
-        """
-
-        linop : np.array
-            Linear operator (L) in the system dtU = LU + NL(U). Can be either a
-            2D numpy array (matrix) or a 1D array (diagonal system). L can be
-            either real-valued or complex-valued.
-
-        NLfunc : function
-            Nonlinear function (NL(U)) in the system dtU = LU + NL(U). Can be a
-            complex or real-valued function.
-
-        """
-
-        self.linop = linop
-        self.NLfunc = NLfunc
-        self.t, self.u = [], []
-
-        dims = linop.shape
-        self._diag = True
-        if len(dims) > 2:
-            raise ValueError("linop must be a 1D or 2D array")
-        elif len(dims) == 2:
-            if dims[0] != dims[1]:
-                raise ValueError("linop must be a square matrix")
-            self._diag = False
-
-        self.__t0, self.__tf, self.__tc = 0, 0, 0
-        self.t, self.u, self.logs = [], [], []
-
-    def reset(self):
-        """Resets solver to its initial state (such that its ready to call the
-        functions evolve or step on a new input). Erases stored variables
-        such as self.t, self.u, and self.logs.
-        """
-        self.t, self.u, self.logs = [], [], []
-        self.__t0, self.__tf, self.__tc = 0, 0, 0
-        self._reset()
-
-    # reset solver dependent variables of the subclass
-    @abstractmethod
-    def _reset(self):
-        pass
-
-    # update RK stages, returns u_{n+1} given u_{n}, to be overwritten by subclass
-    @abstractmethod
-    def _updateStages(self, u, h):
-        pass
-
-    def step(self, u: np.ndarray, h: float) -> np.ndarray:
-        """
-        Propagates a given array of u one step using an RK method for stiff
-        PDEs.
-
-        INPUTS:
-            u : np.array
-                input to propagate
-            h : float
-                step size
-
-        OUTPUTS:
-            unew : np.array
-                result of input u propagated one step in the RK algorithm
-        """
-
-        assert h >= 0.0
-        unew = self._updateStages(u, h)
-        return unew
-
-    def evolve(
-        self,
-        u: np.ndarray,
-        t0: float,
-        tf: float,
-        h: float,
-        store_data: bool = True,
-        store_freq: int = 1,
-    ) -> np.ndarray:
-        """
-        This function propagates an initial value (array) of u given at time t0
-        until a final time tf is reached using a RK method for stiff PDEs
-
-        INPUTS:
-            u : np.array
-                initial value input
-            t0 : float
-                initial time at which u is evaluated
-            tf : float
-                specified end time, propagation stops when the current time is
-                greater than or equal to this value
-            h : float
-                step size for RK method
-            store_data : bool, optional
-                value that determines whether to keep track of the propagation
-                array u at each step of the RK method. Values stored in self.u
-                and self.t
-            store_freq : int, optional
-                store propagation data in self.t and self.u after every
-                [store_freq] step is taken
-        OUTPUTS:
-            u : np.array
-                final value of the input propagated from t0 to tf
-            tf : float
-                actual final time propagated (may be greater than specified tf)
-        """
-
-        self.reset()
-        self.__t0, self.__tf, self.__tc = t0, tf, t0
-
-        if store_data:
-            self.t.append(t0)
-            self.u.append(u)
-
-        # Make sure step size isn't larger than entire propagation time
-        if self.__tc + h > self.__tf:
-            raise ValueError("Reduce step size h, it needs to be less than or equal to tf-t0")
-
-        step_count = 0
-        while self.__tc < self.__tf:
-            u = self.step(u, h)
-            self.__tc += h
-            step_count += 1
-            if store_data and (step_count % store_freq == 0):
-                self.t.append(self.__tc)
-                self.u.append(u)
-
-        return u

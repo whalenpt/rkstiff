@@ -1,314 +1,313 @@
+r"""
+Grid construction utilities for spectral and transform methods
+==============================================================
+
+
+This module provides functions for constructing **spatial** and **spectral**
+grids used in Fourier, Chebyshev, and Hankel spectral methods.
+These grids form the basis of spatial discretizations for PDE solvers
+such as those implemented in :mod:`rkstiff`.
+
+Overview
+--------
+
+Each function constructs either:
+
+- A **uniform grid** for FFT-based spectral differentiation.
+- A **Chebyshev–Gauss–Lobatto** grid for non-periodic domains.
+- A **radial grid** for axisymmetric problems using the Hankel transform.
+
+All grids and wavenumber sets are compatible with NumPy and SciPy FFTs
+and can be directly used with the derivative utilities in
+:mod:`rkstiff.derivatives`.
+
+Contents
+--------
+
+- :func:`construct_x_kx_rfft` — Uniform grid for rFFT (real-valued FFT)
+- :func:`construct_x_kx_fft` — Uniform grid for FFT (complex-valued)
+- :func:`construct_x_cheb` — Chebyshev spatial grid
+- :func:`construct_x_dx_cheb` — Chebyshev grid with differentiation matrix
+- :func:`construct_r_kr_hankel` — Radial grid for Hankel transforms
+- :func:`mirror_grid` — Symmetric grid reflection utility
+"""
+
+from typing import Optional, Tuple
 import numpy as np
 import scipy.special as sp  # type: ignore
-from typing import Optional
 
 
-def construct_x_kx_rfft(N: int, a: float = 0.0, b: float = 2 * np.pi):
-    """Constructs a uniform 1D spatial grid and rfft spectral wavenumbers for real-valued functions
-    INPUTS
-        N - even integer greater than 2
-        a - left endpoint in spatial grid
-        b - right endpoint in spatial grid
-    OUTPUTS
-        x - uniform 1D spatial grid
-        kx - spectral wavenumber grid
+def construct_x_kx_rfft(n: int, a: float = 0.0, b: float = 2 * np.pi) -> Tuple[np.ndarray, np.ndarray]:
+    r"""
+    Construct a uniform 1D spatial grid and *rFFT-compatible* wavenumber grid.
+
+    Parameters
+    ----------
+    n : int
+        Number of grid points. Must be an even integer greater than 2.
+    a : float, optional
+        Left endpoint of the spatial domain. Default is ``0.0``.
+    b : float, optional
+        Right endpoint of the spatial domain. Default is ``2π``.
+
+    Returns
+    -------
+    x : np.ndarray
+        Uniform spatial grid with ``n`` points in :math:`[a, b)`.
+    kx : np.ndarray
+        Spectral wavenumber grid with ``n/2 + 1`` points (for use with rFFT).
+
+    Notes
+    -----
+    The grid spacing and wavenumbers are given by:
+
+    .. math::
+
+        \Delta x = \frac{b - a}{n}, \qquad
+        k_x = 2\pi \, \mathrm{rfftfreq}(n, \Delta x).
+
+    Examples
+    --------
+    >>> x, kx = construct_x_kx_rfft(128, a=0, b=2*np.pi)
+    >>> x.shape
+    (128,)
+    >>> kx.shape
+    (65,)
     """
+    if not isinstance(n, int):
+        raise TypeError("n must be an integer.")
+    if n <= 2 or (n % 2) != 0:
+        raise ValueError("n must be an even integer greater than 2.")
 
-    if not isinstance(N, int):
-        raise TypeError(
-            "Number of grid points N must be an integer, it is {}".format(N)
-        )
-    if N <= 2:
-        raise ValueError(
-            "Number of grid points N must be larger than 2, it is {}".format(N)
-        )
-    if (N % 2) != 0:
-        raise ValueError("Integer N in construct_x_kx_rfft must be an even number")
-
-    dx = (b - a) / N
+    dx = (b - a) / n
     x = np.arange(a, b, dx)
-    kx = 2 * np.pi * np.fft.rfftfreq(N, d=dx)
+    kx = 2 * np.pi * np.fft.rfftfreq(n, d=dx)
     return x, kx
 
 
-def construct_x_kx_fft(N: int, a: float = 0.0, b: float = 2 * np.pi):
-    """Constructs a uniform 1D spatial grid and fft spectral wavenumbers for complex-valued functions
-    INPUTS
-        N - even integer greater than 2
-        a - left endpoint in spatial grid
-        b - right endpoint in spatial grid
-    OUTPUTS
-        x - uniform 1D spatial grid
-        kx - spectral wavenumber grid
+def construct_x_kx_fft(n: int, a: float = 0.0, b: float = 2 * np.pi) -> Tuple[np.ndarray, np.ndarray]:
+    r"""
+    Construct a uniform 1D spatial grid and *FFT-compatible* wavenumber grid.
+
+    Parameters
+    ----------
+    n : int
+        Number of grid points. Must be an even integer greater than 2.
+    a : float, optional
+        Left endpoint of the spatial domain. Default is ``0.0``.
+    b : float, optional
+        Right endpoint of the spatial domain. Default is ``2π``.
+
+    Returns
+    -------
+    x : np.ndarray
+        Uniform spatial grid with ``n`` points in :math:`[a, b)`.
+    kx : np.ndarray
+        Spectral wavenumber grid with ``n`` points (for use with FFT).
+
+    Notes
+    -----
+    The uniform grid and Fourier frequencies are defined by:
+
+    .. math::
+
+        \Delta x = \frac{b - a}{n}, \qquad
+        k_x = 2\pi \, \mathrm{fftfreq}(n, \Delta x).
+
+    Examples
+    --------
+    >>> x, kx = construct_x_kx_fft(128)
+    >>> x.shape, kx.shape
+    ((128,), (128,))
     """
+    if not isinstance(n, int):
+        raise TypeError("n must be an integer.")
+    if n <= 2 or (n % 2) != 0:
+        raise ValueError("n must be an even integer greater than 2.")
 
-    if not isinstance(N, int):
-        raise TypeError(
-            "Number of grid points N must be an integer, it is {}".format(N)
-        )
-    if N <= 2:
-        raise ValueError(
-            "Number of grid points N must be larger than 2, it is {}".format(N)
-        )
-    if (N % 2) != 0:
-        raise ValueError("Integer N in construct_x_kx_rfft must be an even number")
-
-    dx = (b - a) / N
+    dx = (b - a) / n
     x = np.arange(a, b, dx)
-    kx = 2 * np.pi * np.fft.fftfreq(N, d=dx)
+    kx = 2 * np.pi * np.fft.fftfreq(n, d=dx)
     return x, kx
 
 
-def construct_x_cheb(N: int, a: float = -1.0, b: float = 1.0):
-    """Constructs a 1D grid with Chebyshev spatial discretization
+def construct_x_cheb(n: int, a: float = -1.0, b: float = 1.0) -> np.ndarray:
+    r"""
+    Construct a 1D grid with Chebyshev–Gauss–Lobatto points.
 
-    INPUTS
-        N - positive integer
-        a - left endpoint in spatial grid
-        b - right endpoint in spatial grid
-    OUTPUTS
-        x - grid discretized at Chebyshev points
+    Parameters
+    ----------
+    n : int
+        Polynomial order (number of subintervals). The grid has ``n + 1`` points.
+    a, b : float, optional
+        Interval endpoints. Defaults are ``a = -1``, ``b = 1``.
+
+    Returns
+    -------
+    np.ndarray
+        Grid of ``n + 1`` Chebyshev points mapped to the interval :math:`[a, b]`.
+
+    Notes
+    -----
+    The Chebyshev points on :math:`[-1, 1]` are given by:
+
+    .. math::
+
+        x_j = \cos\!\left(\frac{j\pi}{n}\right),
+        \quad j = 0, 1, \dots, n,
+
+    which are then linearly mapped to :math:`[a, b]`.
+
+    Examples
+    --------
+    >>> x = construct_x_cheb(10, a=-1, b=1)
+    >>> len(x)
+    11
+    >>> x[0], x[-1]
+    (1.0, -1.0)
     """
-
-    if not isinstance(N, int):
-        raise TypeError(
-            "Max Chebyshev grid point number N must be an integer, it is {}".format(N)
-        )
-    if N < 2:
-        raise ValueError(
-            "Max Chebyshev grid point number N must be larger than 1, it is {}".format(
-                N
-            )
-        )
-    x = np.polynomial.chebyshev.chebpts2(N + 1)
+    if not isinstance(n, int):
+        raise TypeError("n must be an integer.")
+    if n < 2:
+        raise ValueError("n must be ≥ 2.")
+    x = np.polynomial.chebyshev.chebpts2(n + 1)
     x = a + (b - a) * (x + 1) / 2.0
     return x
 
 
-def construct_x_Dx_cheb(N: int, a: float = -1, b: float = 1):
-    """Constructs a 1D grid with Chebyshev spatial discretization along with a
-        differentiation matrix for functions sampled on this grid
+def construct_x_dx_cheb(n: int, a: float = -1, b: float = 1) -> Tuple[np.ndarray, np.ndarray]:
+    r"""
+    Construct Chebyshev–Gauss–Lobatto grid and its differentiation matrix.
 
-    INPUTS
-        N - positive integer
-        a - left endpoint in spatial grid
-        b - right endpoint in spatial grid
-    OUTPUTS
-        x - grid discretized at Chebyshev points
-        Dx - derivative matrix for functions sampled at Chebyshev points
+    Parameters
+    ----------
+    n : int
+        Polynomial order (number of subintervals). Produces ``n + 1`` points.
+    a, b : float, optional
+        Interval endpoints. Defaults are ``a = -1``, ``b = 1``.
+
+    Returns
+    -------
+    x : np.ndarray
+        Chebyshev grid points on :math:`[a, b]`.
+    d_cheb_matrix : np.ndarray, shape (n+1, n+1)
+        Differentiation matrix :math:`D` such that ``D @ f ≈ df/dx``.
+
+    Notes
+    -----
+    The entries of the differentiation matrix are:
+
+    .. math::
+
+        D_{ij} =
+        \begin{cases}
+            \dfrac{c_i}{c_j (x_i - x_j)}, & i \neq j, \\
+            -\sum_{k \neq i} D_{ik}, & i = j,
+        \end{cases}
+
+    where :math:`c_i = 2(-1)^i` for endpoints and :math:`c_i = (-1)^i` otherwise.
+
+    The matrix achieves spectral accuracy for smooth functions
+    and satisfies the property :math:`D\mathbf{1} = 0`.
     """
-    x = construct_x_cheb(N, a, b)
-    c = np.r_[2, np.ones(N - 1), 2] * np.power(-1, np.arange(0, N + 1))
-    X = np.tile(
-        x.reshape(N + 1, 1), (1, N + 1)
-    )  # put copies of x in columns (first row is x0)
+    x = construct_x_cheb(n, a, b)
+    c = np.r_[2, np.ones(n - 1), 2] * np.power(-1, np.arange(0, n + 1))
+    X = np.tile(x.reshape(n + 1, 1), (1, n + 1))
     dX = X - X.T
-    Dx = np.outer(c, 1.0 / c) / (dX + np.eye(N + 1))
-    Dx = Dx - np.diag(Dx.sum(axis=1))
-    return x, Dx
+    d_cheb_matrix = np.outer(c, 1.0 / c) / (dX + np.eye(n + 1))
+    d_cheb_matrix = d_cheb_matrix - np.diag(d_cheb_matrix.sum(axis=1))
+    return x, d_cheb_matrix
 
 
-class HankelTransform:
-    """
-    A class for computing discrete Hankel Transforms
+def construct_r_kr_hankel(nr: int, rmax: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    r"""
+    Construct Hankel transform grids for axisymmetric domains.
 
-    ATTRIBUTES
-    __________
-
+    Parameters
+    ----------
     nr : int
-        Number of radial points sampled. The size of the
-        hankel transform matrix is nr x nr.
-
+        Number of radial grid points (≥ 4).
     rmax : float
-        Maximum radius of sampled points.
+        Maximum radius of the domain.
 
-    r : np.array, dtype = float
-        Radial points for a spectral grid suitable for the Hankel transform.
-        This grid is determined by the user specification of nr and rmax
+    Returns
+    -------
+    r : np.ndarray
+        Radial grid points in :math:`(0, r_\max]`.
+    kr : np.ndarray
+        Spectral grid points in wavenumber space.
+    bessel_zeros : np.ndarray
+        First ``nr`` zeros of :math:`J_0`.
+    jN : float
+        The ``(nr+1)``-th zero of :math:`J_0` used for normalization.
 
-    kr : np.array, dtype = float
-        Spectral points for a radial grid suitable for the Hankel transform.
-        This grid is determined by the user specification of nr and rmax
+    Notes
+    -----
+    The grid is defined from the zeros of the Bessel function :math:`J_0`:
 
-    METHODS
-    _______
+    .. math::
 
-    ht(f):
-        Computes a hankel transform of the function f sampled at the radial points
-        specified by r.
+        r_i = \frac{j_i}{j_{N+1}} \, r_\max, \qquad
+        k_i = \frac{j_i}{r_\max},
 
-    iht(g):
-        Computes an inverse hankel transform of the spectral space function g sampled
-        at the spectral points specified by kr
-
+    where :math:`j_i` are the zeros of :math:`J_0`.
     """
+    if nr < 4:
+        raise ValueError("nr must be ≥ 4.")
+    if rmax <= 0:
+        raise ValueError("rmax must be positive.")
 
-    def __init__(self, nr, rmax=1.0):
-        """
-        Constructs a Hankel transform Matrix that is used in the forward hankel transform
-        function ht and inverse hankel transform function iht
-
-        INPUTS
-        ______
-
-        nr : int
-            Number of radial points sampled. The size of the
-            hankel transform matrix is nr x nr. nr >= 4
-
-        rmax :  float
-            Maximum radius of sampled points. rmax > 0
-
-        OUTPUTS
-        _______
-        None
-
-        """
-
-        self._bessel_zeros = None
-        self._jN = None
-        self._Y = None
-        self._setnr_setrmax(nr, rmax)
-
-    def _setnr_setrmax(self, nr, rmax):
-        self._setbesselzeros(nr)
-        self._setgrids(rmax)
-        self._sethankelmatrix()
-        self._rmax = rmax
-        self._nr = nr
-
-    def _setbesselzeros(self, nr):
-        # find and save first nr bessel zeros in an array, also save the nr+1 bessel zero
-        bessel_zeros = sp.jn_zeros(0, nr + 1)
-        self._bessel_zeros, self._jN = bessel_zeros[:-1], bessel_zeros[-1]
-
-    def _setgrids(self, rmax):
-        # set the r and kr radial grids given a maximum radius rmax
-        self.r = self._bessel_zeros * rmax / self._jN
-        self.kr = self._bessel_zeros / rmax
-
-    def _sethankelmatrix(self):
-        # set the Hankel matrix used in the Hankel transform for the saved radial grid
-        j1vec = sp.j1(self._bessel_zeros)
-        bessel_arg = np.outer(self._bessel_zeros, self._bessel_zeros) / self._jN
-        self._Y = 2 * sp.j0(bessel_arg) / (self._jN * j1vec**2)
-
-    def _scalefactor(self):
-        # factor used in transforming from real space to spectral space and vice_versa for internal use
-        return self.rmax**2 / self._jN
-
-    def hankelMatrix(self):
-        """Returns a copy of the Hankel transform matrix constructed by the class."""
-        return self._Y.copy()
-
-    def besselZeros(self):
-        """Returns a copy of the Bessel zeros used by the Hankel transform."""
-        return self._bessel_zeros.copy()
-
-    @property
-    def nr(self):
-        """Returns the number of radial points for the radial grid specified by the class."""
-        return self._nr
-
-    @nr.setter
-    def nr(self, nr):
-        """Sets the number of radial points in the grid to be used by the Hankel transform."""
-        if not isinstance(nr, int):
-            raise ValueError("nr must be an integer")
-        if nr < 4:
-            raise ValueError("nr must be greater than or equal to 4")
-        self._setbesselzeros(nr)
-        self._setgrids(self.rmax)
-        self._sethankelmatrix()
-        self._nr = nr
-
-    @property
-    def rmax(self):
-        """Returns the maximum radius of the radial grid used by the Hankel transform"""
-        return self._rmax
-
-    @rmax.setter
-    def rmax(self, rmax):
-        """Sets the maximum radius of the radial grid used by the Hankel transform"""
-        if rmax <= 0:
-            raise ValueError("rmax must be non-negative")
-        self._setgrids(rmax)
-        self._rmax = rmax
-
-    def ht(self, f: np.ndarray) -> np.ndarray:
-        """
-        Computes a hankel transform of the function f sampled at the radial
-        points specified by r
-
-        INPUTS
-        ______
-
-        f : np.array, dtype=float
-            function sampled at the discretized points specified by r
-
-        OUTPUTS
-        _______
-
-        g :  np.array, dtype=float
-            Hankel spectral space representation of the function f corresponding
-            to the spectral space grid points kr
-        """
-
-        return self._scalefactor() * self._Y.dot(f)
-
-    def iht(self, g: np.ndarray) -> np.ndarray:
-        """
-        Computes an inverse hankel transform of the function g sampled at the spectral
-        space points specified by kr
-
-        INPUTS
-        ______
-
-        g : np.array, dtype=float
-            spectral space function sampled at the discretized points specified by kr
-
-        OUTPUTS
-        _______
-
-        f :  np.array, dtype=float
-            Real-space representation of the spectral space function g corresponding
-            to values on the radial grid r
-        """
-
-        return self._Y.dot(g) / self._scalefactor()
+    bessel_zeros = sp.jn_zeros(0, nr + 1)
+    bessel_zeros, jN = bessel_zeros[:-1], bessel_zeros[-1]
+    r = bessel_zeros * rmax / jN
+    kr = bessel_zeros / rmax
+    return r, kr, bessel_zeros, jN
 
 
-def mirrorGrid(r: np.ndarray, u: Optional[np.ndarray] = None, axis: int = -1):
+def mirror_grid(
+    r: np.ndarray, u: Optional[np.ndarray] = None, axis: int = -1
+) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    r"""
+    Mirror a radial grid (and optional function) to produce a symmetric domain.
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Radial grid on :math:`[0, r_\max]`.
+    u : np.ndarray, optional
+        Function values at ``r``. If provided, mirrored values are returned.
+    axis : int, optional
+        Axis along which to mirror ``u``. Default is ``-1``.
+
+        * ``-1`` — Stack horizontally (for 1D)
+        * ``0`` — Stack vertically (rows)
+        * ``1`` — Stack horizontally (columns)
+
+    Returns
+    -------
+    rnew : np.ndarray
+        Mirrored grid on :math:`[-r_\max, r_\max]`.
+    unew : np.ndarray, optional
+        Mirrored function values (if ``u`` was provided).
+
+    Notes
+    -----
+    Useful for visualizing radially symmetric solutions or enforcing
+    symmetric boundary conditions.
+
+    Examples
+    --------
+    >>> r = np.array([0, 1, 2, 3])
+    >>> u = np.array([1, 2, 3, 4])
+    >>> rnew, unew = mirror_grid(r, u)
+    >>> rnew
+    array([-3, -2, -1, 0, 0, 1, 2, 3])
+    >>> unew
+    array([4, 3, 2, 1, 1, 2, 3, 4])
     """
-    Converts r grid from [0,rmax] interval to [-rmax,rmax] interval and adjusts
-    function output u accordingly
-
-    INPUTS
-    ______
-
-    r : np.array, dytpe=float
-        radial grid on interval [0,rmax]
-
-    u : np.array
-        function values specified at radial points given by r
-
-    axis : int
-        axis value determines how to mirror the u array (-1 -> stack horizontally,
-        0 -> stack vertically)
-
-    OUTPUTS
-    _______
-
-    rnew : np.array, dtype=float
-        'radial' grid on the interval [-rmax,rmax]
-
-    unew : np.array
-        function values specified at 'radial' points given by rnew
-
-    """
-
     rnew = np.hstack([-np.flipud(r), r])
     if u is None:
-        return rnew
+        return rnew, None
 
     if axis == -1:
         unew = np.hstack([np.flipud(u), u])
@@ -317,6 +316,6 @@ def mirrorGrid(r: np.ndarray, u: Optional[np.ndarray] = None, axis: int = -1):
     elif axis == 1:
         unew = np.hstack([np.fliplr(u), u])
     else:
-        raise ValueError("axis variable must be -1 or 0")
+        raise ValueError("axis must be -1, 0, or 1.")
 
     return rnew, unew

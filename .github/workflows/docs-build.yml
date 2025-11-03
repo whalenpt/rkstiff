@@ -1,0 +1,32 @@
+name: Build Documentation
+
+on:
+  push:
+    branches:
+      - develop  # run whenever develop is updated (e.g., merge or push)
+  workflow_dispatch:  # allow manual trigger from GitHub UI
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # important so setuptools-scm can read git tags
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: Build HTML documentation
+        run: |
+          cd docs
+          make html
