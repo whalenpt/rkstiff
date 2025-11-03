@@ -1,166 +1,85 @@
-"""rkstiff.solver
-Provides base classes for adaptive-step and constant-step stiff solvers
+r"""
+Base solver infrastructure for all rkstiff PDE solvers
+==================================================================
+
+Base solver infrastructure for exponential time-differencing (ETD)
+and related stiff integrators.
+
+This module defines the :class:`BaseSolver` abstract base class, which
+provides common initialization, logging, and validation logic for all
+solver subclasses (e.g., :class:`rkstiff.etd4.ETD4`,
+:class:`rkstiff.etd5.ETD5`).
+
+It standardizes handling of the linear operator :math:`\mathcal{L}`,
+the nonlinear function :math:`\mathcal{N}(\mathbf{U})`, and logging
+verbosity across all stiff PDE solvers.
 """
 
 from abc import ABC, abstractmethod
-from typing import Tuple, Optional, Callable, Union, Literal
+from typing import Callable, Union, Literal
 import numpy as np
-from .util.loghelper import get_solver_logger, set_log_level, _get_level_name
-
-
-class SolverConfig:
-    """
-    Configuration parameters for adaptive-step stiff solvers.
-
-    Attributes
-    ----------
-    epsilon : float, default=1e-4
-        Relative error tolerance for adaptive stepping.
-    incr_f : float, default=1.25
-        Increment factor for adaptive step sizing (must be > 1.0).
-    decr_f : float, default=0.85
-        Decrement factor for adaptive step sizing (must be < 1.0).
-    safety_f : float, default=0.8
-        Safety factor for adaptive stepping (must be <= 1.0).
-    adapt_cutoff : float, default=0.01
-        Cutoff threshold for adaptive step size computation (must be < 1.0).
-        Modes with relative magnitude below this threshold are ignored.
-    minh : float, default=1e-16
-        Minimum allowable step size.
-    """
-
-    def __init__(self, epsilon=1e-4, incr_f=1.25, decr_f=0.85, safety_f=0.8, adapt_cutoff=0.01, minh=1e-16):
-        """Initialize SolverConfig with validated parameters."""
-        self._epsilon = None
-        self._incr_f = None
-        self._decr_f = None
-        self._safety_f = None
-        self._adapt_cutoff = None
-        self._minh = None
-
-        # Use setters for validation
-        self.epsilon = epsilon
-        self.incr_f = incr_f
-        self.decr_f = decr_f
-        self.safety_f = safety_f
-        self.adapt_cutoff = adapt_cutoff
-        self.minh = minh
-
-    # ---- epsilon ----
-    @property
-    def epsilon(self) -> float:
-        """Relative error tolerance for adaptive stepping."""
-        return self._epsilon
-
-    @epsilon.setter
-    def epsilon(self, value: float) -> None:
-        """Set relative error tolerance, must be positive."""
-        if value <= 0:
-            raise ValueError("epsilon must be positive but is %s" % value)
-        self._epsilon = float(value)
-
-    # ---- incr_f ----
-    @property
-    def incr_f(self) -> float:
-        """Increment factor for adaptive step sizing."""
-        return self._incr_f
-
-    @incr_f.setter
-    def incr_f(self, value: float) -> None:
-        """Set increment factor, must be greater than 1.0."""
-        if value <= 1.0:
-            raise ValueError("incr_f must be > 1.0 but is %s" % value)
-        self._incr_f = float(value)
-
-    # ---- decr_f ----
-    @property
-    def decr_f(self) -> float:
-        """Decrement factor for adaptive step sizing."""
-        return self._decr_f
-
-    @decr_f.setter
-    def decr_f(self, value: float) -> None:
-        """Set decrement factor, must be less than 1.0."""
-        if value >= 1.0:
-            raise ValueError("decr_f must be < 1.0 but is %s" % value)
-        self._decr_f = float(value)
-
-    # ---- safety_f ----
-    @property
-    def safety_f(self) -> float:
-        """Safety factor for adaptive stepping."""
-        return self._safety_f
-
-    @safety_f.setter
-    def safety_f(self, value: float) -> None:
-        """Set safety factor, must be less than or equal to 1.0."""
-        if value > 1.0:
-            raise ValueError("safety_f must be <= 1.0 but is %s" % value)
-        self._safety_f = float(value)
-
-    # ---- adapt_cutoff ----
-    @property
-    def adapt_cutoff(self) -> float:
-        """Cutoff threshold for adaptive step size computation."""
-        return self._adapt_cutoff
-
-    @adapt_cutoff.setter
-    def adapt_cutoff(self, value: float) -> None:
-        """Set adapt_cutoff, must be less than 1.0."""
-        if value >= 1.0:
-            raise ValueError("adapt_cutoff must be < 1.0 but is %s" % value)
-        self._adapt_cutoff = float(value)
-
-    # ---- minh ----
-    @property
-    def minh(self) -> float:
-        """Minimum allowable step size."""
-        return self._minh
-
-    @minh.setter
-    def minh(self, value: float) -> None:
-        """Set minimum step size, must be positive."""
-        if value <= 0:
-            raise ValueError("minh must be positive but is %s" % value)
-        self._minh = float(value)
+from .util.loghelper import get_solver_logger, set_log_level, get_level_name
 
 
 class BaseSolver(ABC):
-    """
-    Base class for all stiff solvers.
+    r"""
+    Abstract base class for all stiff solvers.
 
-    Provides common functionality for initializing linear operators,
-    nonlinear functions, and logging configuration.
+    Provides shared functionality for initializing linear and nonlinear
+    components, configuring logging, and managing solution state.
+
+    Subclasses (such as :class:`ETD4` or :class:`ETD5`) implement
+    specific numerical time-stepping schemes by defining the abstract
+    methods :meth:`reset` and :meth:`_reset`.
 
     Parameters
     ----------
     lin_op : np.ndarray
-        Linear operator L. Can be 1D (diagonal) or 2D square matrix.
+        Linear operator :math:`\mathcal{L}` defining the stiff part of
+        the system. Can be either:
+
+        * 1D array — representing a diagonal operator
+        * 2D square array — representing a full linear operator matrix
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function NL(U).
+        Nonlinear function :math:`\mathcal{N}(\mathbf{U})` returning
+        the nonlinear contribution for a given solution vector.
     loglevel : str or int, optional
-        Logging level. Can be:
-        - String: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
-        - Integer: logging.DEBUG, logging.INFO, etc.
-        - Default: 'WARNING'
+        Logging level. Accepts either a string
+        (``'DEBUG'``, ``'INFO'``, ``'WARNING'``, ``'ERROR'``,
+        ``'CRITICAL'``) or the corresponding integer constant from
+        :mod:`logging`. Default is ``'WARNING'``.
 
     Attributes
     ----------
     lin_op : np.ndarray
-        Linear operator.
+        Linear operator associated with the stiff system.
     nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function.
+        Nonlinear function :math:`\mathcal{N}(\mathbf{U})`.
     logger : logging.Logger
-        Logger instance for this solver.
-    t : list
-        Time points from most recent evolve() call.
-    u : list
-        Solution arrays from most recent evolve() call.
+        Logger instance configured for the solver.
+    t : list of float
+        Time points generated during the last call to :meth:`evolve`.
+    u : list of np.ndarray
+        Solution vectors corresponding to time points in :attr:`t`.
+    _diag : bool
+        Indicates whether the linear operator is diagonal (True) or
+        full matrix (False).
 
     Raises
     ------
     ValueError
-        If lin_op is not 1D or 2D square.
+        If ``lin_op`` is not 1D or a 2D square matrix.
+
+    Notes
+    -----
+    This base class is not meant to be instantiated directly.
+    Derived solvers should inherit from :class:`BaseSolver` and
+    implement both :meth:`reset` and :meth:`_reset` to define
+    problem-specific initialization and internal state clearing.
+
+    .. tip::
+       The base class automatically detects whether ``lin_op`` is
+       diagonal, allowing subclasses to optimize accordingly.
     """
 
     def __init__(
@@ -170,637 +89,95 @@ class BaseSolver(ABC):
         loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
     ) -> None:
         """
-        Initialize the base solver.
+        Initialize a base solver instance.
+
+        Sets up internal attributes, validates the shape of the linear
+        operator, and configures logging behavior.
 
         Parameters
         ----------
         lin_op : np.ndarray
-            Linear operator. Must be 1D (diagonal) or 2D square matrix.
+            Linear operator. Must be 1D (diagonal) or a 2D square matrix.
         nl_func : Callable[[np.ndarray], np.ndarray]
-            Nonlinear function mapping state vector to nonlinear contribution.
+            Nonlinear function mapping the solution vector to its
+            nonlinear component.
         loglevel : str or int, optional
-            Logging level. Default is 'WARNING'.
+            Logging verbosity level. Default is ``'WARNING'``.
 
         Raises
         ------
         ValueError
-            If lin_op has invalid dimensions.
+            If ``lin_op`` is not 1D or not a square 2D matrix.
         """
         self.lin_op = lin_op
         self.nl_func = nl_func
 
-        # Create logger using helper function
+        # Create and configure logger
         self.logger = get_solver_logger(self.__class__, loglevel)
         self.logger.info("Initialized %s solver", self.__class__.__name__)
 
-        # Initialize storage
+        # Storage for time evolution
         self.t, self.u = [], []
 
-        # Validate and set operator properties
+        # Validate shape and determine if diagonal
         dims = lin_op.shape
-        self._diag = True
-        if len(dims) > 2 or len(dims) == 0:
-            raise ValueError("lin_op must be a 1D or 2D array")
-        if len(dims) == 2:
-            if dims[0] != dims[1]:
-                raise ValueError("lin_op must be a square matrix")
-            self._diag = False
+        if len(dims) not in (1, 2):
+            raise ValueError("lin_op must be 1D or 2D")
+        if len(dims) == 2 and dims[0] != dims[1]:
+            raise ValueError("lin_op must be a square matrix")
 
+        self._diag = len(dims) == 1
         self.logger.debug("Linear operator shape: %s, diagonal: %s", dims, self._diag)
 
+    # ------------------------------------------------------------------
+    # Logging utilities
+    # ------------------------------------------------------------------
     def set_loglevel(self, loglevel: Union[str, int]) -> None:
         """
-        Change the logging level after initialization.
+        Adjust the solver's logging verbosity at runtime.
 
         Parameters
         ----------
         loglevel : str or int
-            New logging level
+            New logging level. Accepts standard string levels or numeric
+            constants from :mod:`logging`.
+
+        Examples
+        --------
+        >>> solver.set_loglevel("INFO")
+        >>> solver.set_loglevel(logging.DEBUG)
         """
         set_log_level(self.logger, loglevel)
-        self.logger.info("Log level changed to %s", _get_level_name(self.logger.level))
+        self.logger.info("Log level changed to %s", get_level_name(self.logger.level))
 
+    # ------------------------------------------------------------------
+    # Abstract interface
+    # ------------------------------------------------------------------
     @abstractmethod
     def reset(self) -> None:
         """
-        Reset solver to initial state.
+        Reset the solver to its initial state.
 
-        Clears stored time points and solution arrays. Prepares
-        solver for a new call to evolve() or step() with fresh initial conditions.
-        """
-
-    @abstractmethod
-    def _reset(self) -> None:
-        """Reset solver-specific internal state. Must be implemented by subclasses."""
-
-
-class StiffSolverAS(BaseSolver):
-    """
-    Base class for adaptive-step Runge-Kutta solvers for stiff systems.
-
-    Solves systems of the form dU/dt = L*U + NL(U), where L is a linear
-    operator and NL is a nonlinear function. The solver automatically adjusts
-    the time step to maintain a specified error tolerance.
-
-    Parameters
-    ----------
-    lin_op : np.ndarray
-        Linear operator L. Can be 1D (diagonal) or 2D square matrix.
-    nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function nl_func(U).
-    config : SolverConfig, optional
-        Configuration parameters for adaptive stepping.
-    loglevel : str or int, optional
-        Logging level. Can be:
-        - String: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
-        - Integer: logging.DEBUG, logging.INFO, etc.
-        - Default: 'WARNING'
-
-    Attributes
-    ----------
-    config : SolverConfig
-        Configuration parameters for adaptive stepping.
-    epsilon : float
-        Relative error tolerance.
-    incr_f : float
-        Increment factor for step size increases (> 1.0).
-    decr_f : float
-        Decrement factor for step size decreases (< 1.0).
-    safety_f : float
-        Safety factor for adaptive stepping (<= 1.0).
-    adapt_cutoff : float
-        Threshold for ignoring small modes (< 1.0).
-    minh : float
-        Minimum allowable step size.
-
-    Raises
-    ------
-    ValueError
-        If lin_op is not 1D or 2D square, or if config parameters are invalid.
-
-    Notes
-    -----
-    Subclasses must implement _reset(), _update_stages(), and _q() methods.
-    """
-
-    class SolverError(RuntimeError):
-        """Base exception for solver failures."""
-
-    class MaxLoopsExceeded(SolverError):
-        """Raised when adaptive step exceeds maximum allowed attempts."""
-
-    class MinimumStepReached(SolverError):
-        """Raised when step size reaches minimum allowed value."""
-
-    MAX_LOOPS = 50
-    MAX_S = 4.0  # Maximum step increase factor
-    MIN_S = 0.25  # Minimum step decrease factor
-
-    def __init__(
-        self,
-        lin_op: np.ndarray,
-        nl_func: Callable[[np.ndarray], np.ndarray],
-        config: SolverConfig = SolverConfig(),
-        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
-    ) -> None:
-        """
-        Initialize the adaptive-step solver.
-
-        Parameters
-        ----------
-        lin_op : np.ndarray
-            Linear operator. Must be 1D (diagonal) or 2D square matrix.
-        nl_func : Callable[[np.ndarray], np.ndarray]
-            Nonlinear function mapping state vector to nonlinear contribution.
-        config : SolverConfig, optional
-            Configuration with epsilon, incr_f, decr_f, safety_f, adapt_cutoff, minh.
-        loglevel : str or int, optional
-            Logging level. Default is 'WARNING'.
-
-        Raises
-        ------
-        ValueError
-            If lin_op has invalid dimensions or if config parameters violate constraints.
-        """
-        super().__init__(lin_op, nl_func, loglevel)
-
-        self.config = config
-        self.logger.debug(
-            "Config: epsilon=%s, incr_f=%s, decr_f=%s, safety_f=%s",
-            config.epsilon,
-            config.incr_f,
-            config.decr_f,
-            config.safety_f,
-        )
-
-        self.__t0, self.__tf, self.__tc = 0, 0, 0
-        self._accept = False
-
-    def reset(self) -> None:
-        """
-        Reset solver to initial state.
-
-        Clears stored time points and solution arrays. Prepares
-        solver for a new call to evolve() or step() with fresh initial conditions.
-        """
-        self.logger.debug("Resetting solver state")
-        self.t, self.u = [], []
-        self.__t0, self.__tf, self.__tc = 0, 0, 0
-        self._accept = False
-        self._reset()
-
-    @abstractmethod
-    def _reset(self) -> None:
-        """Reset solver-specific internal state. Must be implemented by subclasses."""
-
-    @abstractmethod
-    def _update_stages(self, u: np.ndarray, h: float) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Advance solution by one time step.
-
-        Must be implemented by subclasses to perform the RK stage updates.
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Current state vector.
-        h : float
-            Time step size.
-
-        Returns
-        -------
-        tuple[np.ndarray, np.ndarray]
-            Next state vector and local error estimate.
-        """
-
-    @abstractmethod
-    def _q(self):
-        """Return the order parameter q for step size computation."""
-
-    def step(self, u: np.ndarray, h_suggest: float) -> Tuple[np.ndarray, float, float]:
-        """
-        Propagate solution by one adaptive time step.
-
-        Attempts to advance the solution using the suggested step size,
-        automatically reducing it if the error exceeds tolerance.
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Current state vector.
-        h_suggest : float
-            Suggested time step size (may be reduced to meet tolerance).
-
-        Returns
-        -------
-        unew : np.ndarray
-            Updated state vector after one accepted step.
-        h : float
-            Actual step size taken (may be less than h_suggest).
-        h_suggest : float
-            Suggested step size for next step.
-
-        Raises
-        ------
-        MaxLoopsExceeded
-            If too many attempts are needed to find an acceptable step size.
-        MinimumStepReached
-            If step size falls below minimum allowed value.
-        """
-        h = h_suggest
-        assert h >= 0.0
-        self.logger.debug("Starting step with h_suggest=%s", h_suggest)
-
-        numloops = 0
-        while True:
-            unew, err = self._update_stages(u, h)
-            # Compute step size change factor s
-            s = self._compute_s(unew, err)
-            self.logger.debug("Computed s=%s for h=%s", s, h)
-
-            # If s is less than 1, inf, or nan, reject step and reduce step size
-            if np.isinf(s) or np.isnan(s) or s < 1.0:
-                h = self._reject_step_size(s, h)
-            # If s is bigger than 1 accept h and the step
-            else:
-                h_suggest = self._accept_step_size(s, h)
-                self.logger.debug("Step accepted, returning h=%s, h_suggest=%s", h, h_suggest)
-                return unew, h, h_suggest
-
-            numloops += 1
-            if numloops > self.MAX_LOOPS:
-                failure_str = (
-                    "Solver failed: adaptive step made too many attempts to find a step "
-                    "size with an acceptible amount of error."
-                )
-                self.logger.error(failure_str)
-                raise self.MaxLoopsExceeded(failure_str)
-            if h < self.config.minh:
-                failure_str = "Solver failed: adaptive step reached minimum step size"
-                self.logger.error(failure_str)
-                raise self.MinimumStepReached(failure_str)
-
-    def _compute_s(self, u: np.ndarray, err: np.ndarray) -> float:
-        """
-        Compute step size adjustment factor.
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Current state vector.
-        err : np.ndarray
-            Local error estimate.
-
-        Returns
-        -------
-        float
-            Step size adjustment factor s. Values > 1 indicate step acceptance.
-        """
-        # Use adapt_cutoff to ignore small modes/values in the computation of the step size
-        magu = np.abs(u)
-        idx = magu / magu.max() > self.config.adapt_cutoff
-        tol = self.config.epsilon * np.linalg.norm(u[idx])
-        s = self.config.safety_f * np.power(tol / np.linalg.norm(err[idx]), 1.0 / self._q())
-        return s
-
-    def _reject_step_size(self, s: float, h: float) -> float:
-        """
-        Compute reduced step size after rejection.
-
-        Parameters
-        ----------
-        s : float
-            Step size adjustment factor.
-        h : float
-            Current step size.
-
-        Returns
-        -------
-        float
-            New (reduced) step size.
-        """
-        self._accept = False
-        # Check that s is a number
-        if np.isinf(s) or np.isnan(s):
-            msg = "inf or nan number encountered: reducing step size to %s" % h
-            self.logger.warning(msg)
-            return self.MIN_S * h
-
-        s = np.max([s, self.MIN_S])  # dont let s be too small
-        s = np.min([s, self.config.decr_f])  # dont let s be too close to 1
-        msg = "step rejected with s = %.2f" % s
-        self.logger.debug(msg)
-        hnew = s * h
-        msg = "reducing step size to %s" % hnew
-        self.logger.debug(msg)
-        return hnew
-
-    def _accept_step_size(self, s: float, h: float) -> float:
-        """
-        Compute suggested step size after acceptance.
-
-        Parameters
-        ----------
-        s : float
-            Step size adjustment factor.
-        h : float
-            Current step size.
-
-        Returns
-        -------
-        float
-            Suggested step size for next step.
-        """
-        self._accept = True
-        s = np.min([s, self.MAX_S])  # dont let s be too big
-        msg = "step accepted with s = %.2f" % s
-        self.logger.debug(msg)
-
-        # if s much larger than 1, increase the step size
-        if s > self.config.incr_f:
-            h_suggest = s * h
-            msg = "increasing step size to %s" % h_suggest
-            self.logger.debug(msg)
-            return h_suggest
-        return h
-
-    def evolve(
-        self,
-        u: np.ndarray,
-        t0: float,
-        tf: float,
-        h_init: Optional[float] = None,
-        store_data: bool = True,
-        store_freq: int = 1,
-    ) -> np.ndarray:
-        """
-        Evolve solution from initial to final time using adaptive stepping.
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Initial state vector at time t0.
-        t0 : float
-            Initial time.
-        tf : float
-            Final time.
-        h_init : float, optional
-            Initial step size. Defaults to (tf - t0) / 100 if not specified.
-        store_data : bool, default=True
-            Whether to store intermediate time points and solutions in
-            self.t and self.u.
-        store_freq : int, default=1
-            Store data every store_freq accepted steps.
-
-        Returns
-        -------
-        np.ndarray
-            Final state vector at time tf.
+        Clears stored time and solution arrays, restoring the solver
+        to its post-initialization condition. Typically invoked before
+        restarting a simulation or integrating a new problem.
 
         Notes
         -----
-        Stored data is accessible via self.t (times) and self.u (states).
+        Subclasses should call ``super().reset()`` if extending this
+        method, and implement :meth:`_reset` to clear any
+        solver-specific caches.
         """
-        self.reset()
-        self.logger.info("Starting evolution from t=%s to t=%s", t0, tf)
-        self.__t0, self.__tf, self.__tc = t0, tf, t0
-
-        if store_data:
-            self.t.append(t0)
-            self.u.append(u)
-
-        # Set initial step size if none given
-        if h_init is None:
-            h_init = (self.__tf - self.__t0) / 100.0
-        h = h_init
-        self.logger.debug("Initial step size h=%s, store_freq=%s", h, store_freq)
-
-        # Make sure step size isn't larger than entire propagation time
-        if self.__tc + h > self.__tf:
-            h = self.__tf - self.__tc
-
-        step_count = 0
-        while self.__tc < self.__tf:
-            u, h, h_suggest = self.step(u, h)
-            self.__tc += h
-            step_count += 1
-
-            if step_count % 100 == 0:
-                self.logger.info(
-                    "Progress: t=%.6f/%.6f (%.1f%%), steps=%d",
-                    self.__tc,
-                    self.__tf,
-                    100 * self.__tc / self.__tf,
-                    step_count,
-                )
-
-            if self.__tc + h_suggest > self.__tf:
-                h = self.__tf - self.__tc
-            else:
-                h = h_suggest
-
-            if store_data and (step_count % store_freq == 0):
-                self.t.append(self.__tc)
-                self.u.append(u)
-                self.logger.debug("Stored solution at t=%.6f (step %d)", self.__tc, step_count)
-
-        self.logger.info("Evolution complete after %d steps", step_count)
-        self.logger.info("Stored %d solution snapshots", len(self.u))
-        return u
-
-
-class StiffSolverCS(BaseSolver):
-    """
-    Base class for constant-step Runge-Kutta solvers for stiff systems.
-
-    Solves systems of the form dU/dt = L*U + NL(U), where L is a linear
-    operator and nl_func is a nonlinear function, using a fixed time step.
-
-    Parameters
-    ----------
-    lin_op : np.ndarray
-        Linear operator L. Can be 1D (diagonal) or 2D square matrix.
-    nl_func : Callable[[np.ndarray], np.ndarray]
-        Nonlinear function NL(U).
-    loglevel : str or int, optional
-        Logging level. Can be:
-        - String: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
-        - Integer: logging.DEBUG, logging.INFO, etc.
-        - Default: 'WARNING'
-
-    Attributes
-    ----------
-    All attributes from BaseSolver
-
-    Raises
-    ------
-    ValueError
-        If lin_op is not 1D or 2D square.
-
-    Notes
-    -----
-    Subclasses must implement _reset() and _update_stages() methods.
-    """
-
-    def __init__(
-        self,
-        lin_op: np.ndarray,
-        nl_func: Callable[[np.ndarray], np.ndarray],
-        loglevel: Union[Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], int] = "WARNING",
-    ) -> None:
-        """
-        Initialize the constant-step solver.
-
-        Parameters
-        ----------
-        lin_op : np.ndarray
-            Linear operator. Must be 1D (diagonal) or 2D square matrix.
-        nl_func : Callable[[np.ndarray], np.ndarray]
-            Nonlinear function mapping state vector to nonlinear contribution.
-        loglevel : str or int, optional
-            Logging level. Default is 'WARNING'.
-
-        Raises
-        ------
-        ValueError
-            If lin_op has invalid dimensions.
-        """
-        super().__init__(lin_op, nl_func, loglevel)
-        self.__tf, self.__tc = 0, 0
-
-    def reset(self) -> None:
-        """
-        Reset solver to initial state.
-
-        Clears stored time points and solution arrays. Prepares
-        solver for a new call to evolve() or step() with fresh initial conditions.
-        """
-        self.logger.debug("Resetting solver state")
-        self.t, self.u = [], []
-        self.__tf, self.__tc = 0, 0
-        self._reset()
 
     @abstractmethod
     def _reset(self) -> None:
-        """Reset solver-specific internal state. Must be implemented by subclasses."""
-
-    @abstractmethod
-    def _update_stages(self, u: np.ndarray, h: float) -> np.ndarray:
         """
-        Advance solution by one time step.
+        Reset solver-specific internal state.
 
-        Must be implemented by subclasses to perform the RK stage updates.
+        Must be implemented by subclasses to clear any cached
+        coefficients, temporary arrays, or integration-specific
+        parameters.
 
-        Parameters
-        ----------
-        u : np.ndarray
-            Current state vector.
-        h : float
-            Time step size.
-
-        Returns
-        -------
-        np.ndarray
-            Next state vector.
+        This method is typically invoked by :meth:`reset` and should
+        not be called directly by users.
         """
-
-    def step(self, u: np.ndarray, h: float) -> np.ndarray:
-        """
-        Propagate solution by one constant time step.
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Current state vector.
-        h : float
-            Time step size (must be >= 0).
-
-        Returns
-        -------
-        np.ndarray
-            Updated state vector after one step.
-        """
-        assert h >= 0.0
-        self.logger.debug("Step at h=%s", h)
-        unew = self._update_stages(u, h)
-        return unew
-
-    def evolve(
-        self,
-        u: np.ndarray,
-        t0: float,
-        tf: float,
-        h: float,
-        store_data: bool = True,
-        store_freq: int = 1,
-    ) -> np.ndarray:
-        """
-        Evolve solution from initial to final time using constant stepping.
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Initial state vector at time t0.
-        t0 : float
-            Initial time.
-        tf : float
-            Final time (actual final time may exceed this slightly).
-        h : float
-            Constant time step size.
-        store_data : bool, default=True
-            Whether to store intermediate time points and solutions in
-            self.t and self.u.
-        store_freq : int, default=1
-            Store data every store_freq steps.
-
-        Returns
-        -------
-        np.ndarray
-            Final state vector at or after time tf.
-
-        Raises
-        ------
-        ValueError
-            If step size h is greater than (tf - t0).
-
-        Notes
-        -----
-        Stored data is accessible via self.t (times) and self.u (states).
-        """
-        self.reset()
-        self.logger.info("Starting evolution from t=%s to t=%s", t0, tf)
-        self.__tf, self.__tc = tf, t0
-
-        if store_data:
-            self.t.append(t0)
-            self.u.append(u)
-
-        # Make sure step size isn't larger than entire propagation time
-        if self.__tc + h > self.__tf:
-            raise ValueError("Reduce step size h, it needs to be less than or equal to tf - t0")
-
-        self.logger.debug("Step size h=%s, store_freq=%s", h, store_freq)
-
-        step_count = 0
-        while self.__tc < self.__tf:
-            u = self.step(u, h)
-            self.__tc += h
-            step_count += 1
-
-            if step_count % 100 == 0:
-                self.logger.info(
-                    "Progress: t=%.6f/%.6f (%.1f%%), steps=%d",
-                    self.__tc,
-                    self.__tf,
-                    100 * self.__tc / self.__tf,
-                    step_count,
-                )
-
-            if store_data and (step_count % store_freq == 0):
-                self.t.append(self.__tc)
-                self.u.append(u)
-                self.logger.debug("Stored solution at t=%.6f (step %d)", self.__tc, step_count)
-
-        self.logger.info("Evolution complete after %d steps", step_count)
-        self.logger.info("Stored %d solution snapshots", len(self.u))
-        return u

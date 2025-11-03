@@ -1,8 +1,7 @@
 import numpy as np
 import pytest
-from rkstiff.etd35 import _Etd35Diagonal, _Etd35Diagonalized, ETD35
+from rkstiff.etd35 import _Etd35Diagonal, _Etd35Diagonalized, ETD35, SolverConfig
 from rkstiff.etd import ETDConfig
-from rkstiff.solver import SolverConfig
 from testing_util import kdv_soliton_setup, allen_cahn_setup, kdv_adp_step_eval, kdv_evolve_eval
 
 

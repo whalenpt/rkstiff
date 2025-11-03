@@ -6,9 +6,8 @@ from rkstiff.etd34 import ETD34
 from rkstiff.if34 import IF34
 from rkstiff.if45dp import IF45DP
 from rkstiff.etd import ETDAS
-from rkstiff.etd5 import ETD5
 from rkstiff.if4 import IF4
-from rkstiff.solver import StiffSolverAS, SolverConfig
+from rkstiff.solveras import BaseSolverAS, SolverConfig
 from rkstiff.etd import ETDConfig
 from testing_util import (
     allen_cahn_setup,
@@ -39,7 +38,7 @@ def test_bad_solver_config():
     # Test that negative epsilon raises ValueError
     with pytest.raises(ValueError):
         SolverConfig(epsilon=-1e-6)
-    # Test that invalid safetyFactor raises ValueError
+    # Test that invalid safety_factor raises ValueError
     with pytest.raises(ValueError):
         SolverConfig(safety_f=1.2)
     # Test that invalid adapt_cutoff raises ValueError
@@ -74,7 +73,7 @@ def test_abc_error():
         ETDAS(lin_op=None, nl_func=None)
     with pytest.raises(TypeError):
         # pylint: disable=abstract-class-instantiated
-        StiffSolverAS(lin_op=None, nl_func=None)
+        BaseSolverAS(lin_op=None, nl_func=None)
 
 
 def test_etd34_nondiag():

@@ -26,22 +26,3 @@ def test_construct_x_dx_cheb_valid():
     x, Dx = grids.construct_x_dx_cheb(8)
     assert x.shape[0] == 9
     assert Dx.shape == (9, 9)
-
-
-def test_hankel_transform_invalid():
-    from rkstiff.grids import HankelTransform
-
-    with pytest.raises(ValueError):
-        HankelTransform(nr=0, rmax=1.0)
-    with pytest.raises(ValueError):
-        HankelTransform(nr=10, rmax=0)
-
-
-def test_hankel_transform_properties():
-    from rkstiff.grids import HankelTransform
-
-    ht = HankelTransform(nr=8, rmax=2.0)
-    assert hasattr(ht, "r")
-    assert hasattr(ht, "kr")
-    assert callable(ht.ht)
-    assert callable(ht.iht)
