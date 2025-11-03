@@ -211,10 +211,11 @@ def construct_x_dx_cheb(n: int, a: float = -1, b: float = 1) -> Tuple[np.ndarray
     and satisfies the property :math:`D\mathbf{1} = 0`.
     """
     x = construct_x_cheb(n, a, b)
-    c = np.r_[2, np.ones(n - 1), 2] * np.power(-1, np.arange(n + 1))
-    X = np.tile(x, (n + 1, 1))
-    d_cheb_matrix = np.outer(c, 1.0 / c) / (X - X.T + np.eye(n + 1))
-    d_cheb_matrix -= np.diag(d_cheb_matrix.sum(axis=1))
+    c = np.r_[2, np.ones(n - 1), 2] * np.power(-1, np.arange(0, n + 1))
+    X = np.tile(x.reshape(n + 1, 1), (1, n + 1))
+    dX = X - X.T
+    d_cheb_matrix = np.outer(c, 1.0 / c) / (dX + np.eye(n + 1))
+    d_cheb_matrix = d_cheb_matrix - np.diag(d_cheb_matrix.sum(axis=1))
     return x, d_cheb_matrix
 
 

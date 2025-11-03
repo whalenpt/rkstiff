@@ -83,7 +83,7 @@ class _IF4Diagonal:
         self._EL2 = np.exp(z / 2)
 
     def n1_init(self, u: np.ndarray) -> None:
-        """
+        r"""
         Initialize first nonlinear term :math:`\mathcal{N}_1 = \mathcal{N}(\mathbf{U}_n)`.
 
         Parameters
@@ -94,7 +94,7 @@ class _IF4Diagonal:
         self._NL1 = self.nl_func(u)
 
     def update_stages(self, u: np.ndarray, h: float) -> np.ndarray:
-        """
+        r"""
         Perform one fourth-order integrating factor Runge–Kutta step.
 
         Parameters
@@ -164,7 +164,7 @@ class _IF4NonDiagonal:
         self._EL2 = expm(z / 2)
 
     def n1_init(self, u: np.ndarray) -> None:
-        """Initialize the first nonlinear evaluation :math:`\mathcal{N}_1 = \mathcal{N}(\mathbf{U}_n)`."""
+        r"""Initialize the first nonlinear evaluation :math:`\mathcal{N}_1 = \mathcal{N}(\mathbf{U}_n)`."""
         self._NL1 = self.nl_func(u)
 
     def update_stages(self, u: np.ndarray, h: float) -> np.ndarray:

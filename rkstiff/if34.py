@@ -93,7 +93,7 @@ class _If34Diagonal:
         self._EL2 = np.exp(z / 2)
 
     def n1_init(self, u: np.ndarray) -> None:
-        """Initialize the first nonlinear evaluation :math:`\mathcal{N}_1 = \mathcal{N}(\mathbf{u}_n)`."""
+        r"""Initialize the first nonlinear evaluation :math:`\mathcal{N}_1 = \mathcal{N}(\mathbf{u}_n)`."""
         self._NL1 = self.nl_func(u)
 
     def update_stages(self, u: np.ndarray, h: float, accept: bool) -> tuple[np.ndarray, np.ndarray]:
