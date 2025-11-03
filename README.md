@@ -1,6 +1,7 @@
 [![PyPI Version][pypi-image]][pypi-url]
 [![Build Status][build-image]][build-url]
 [![Code Coverage][coverage-image]][coverage-url]
+[![Documentation Status][docs-image]][docs-url]
 
 <!-- Badges -->
 [pypi-image]: https://img.shields.io/pypi/v/rkstiff
@@ -9,6 +10,8 @@
 [build-url]: https://github.com/whalenpt/rkstiff/actions/workflows/build.yml
 [coverage-image]: https://codecov.io/gh/whalenpt/rkstiff/branch/master/graph/badge.svg
 [coverage-url]: https://codecov.io/gh/whalenpt/rkstiff
+[docs-image]: https://readthedocs.org/projects/rkstiff/badge/?version=latest
+[docs-url]: https://rkstiff.readthedocs.io/en/latest
 
 # rkstiff #
 
