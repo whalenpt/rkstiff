@@ -3,6 +3,7 @@
 See: https://www.sphinx-doc.org/en/master/usage/configuration.html
 """
 
+from importlib.metadata import version as pkg_version, PackageNotFoundError
 from pathlib import Path
 import sys
 
@@ -30,8 +31,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 # -- Project information -----------------------------------------------------
 project = "rkstiff"
 author = "Patrick Whalen"
-release = "1.0.0"
-version = "1.0"
+
+try:
+    release = pkg_version("rkstiff")
+except PackageNotFoundError:
+    # Fallback to reading from the generated version file (if docs built locally)
+    from pathlib import Path
+    version_file = Path(__file__).resolve().parents[2] / "rkstiff" / "__version__.py"
+    if version_file.exists():
+        ns = {}
+        exec(version_file.read_text(), ns)
+        release = ns.get("__version__", "0.0.0")
+    else:
+        release = "0.0.0"
+
+version = release.split("+")[0]  # strip local metadata if present
 
 # -- General configuration ---------------------------------------------------
 extensions = [
