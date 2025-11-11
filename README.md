@@ -1,7 +1,7 @@
 [![PyPI Version][pypi-image]][pypi-url]
 [![Build Status][build-image]][build-url]
 [![Code Coverage][coverage-image]][coverage-url]
-[![Documentation Status][docs-image]][docs-url]
+[![Docs Status][docs-image]][docs-url]
 
 <!-- Badges -->
 [pypi-image]: https://img.shields.io/pypi/v/rkstiff
@@ -13,158 +13,238 @@
 [docs-image]: https://readthedocs.org/projects/rkstiff/badge/?version=latest
 [docs-url]: https://rkstiff.readthedocs.io/en/latest
 
-# rkstiff #
+# rkstiff
 
-Runge-Kutta integrating factor (IF) and exponential time-differencing (ETD) methods
-for solving nonlinear-PDE's of the form <code>u<sub>t</sub> = Lu + NL(u)</code>. 
-Some examples of non-linear PDES that can be numerically solved using these methods are:
-- Nonlinear Schrodinger equation (NLS)
-- Kuramoto-Sivashinsky (KS)
-- Korteweg-de Vries (KdV) 
-- Burgers
-- Allen-Cahn
-- Sine-Gordon
+> **Exponential time–differencing (ETD)** and **integrating factor (IF)** Runge–Kutta solvers for stiff semi-linear PDEs:
+>
+> $u_t = L u + \mathrm{NL}(u)$
+>
+> - Fast, adaptive, and pure Python (NumPy/SciPy only)
+> - Embedded error control, logging, and flexible operator support
+> - Designed for spectral methods and diagonalizable systems
+>
+> **Tested:** Python 3.9–3.13 | **Dependencies:** NumPy, SciPy | **Optional:** matplotlib, jupyter, pytest
+>
+> **Docs:** [rkstiff.readthedocs.io][docs-url]
 
-The adaptive step solver
-options provided in this package are
-1. ETD35  (5<sup>th</sup> order ETD with 3<sup>rd</sup> orderembedding)
-2. ETD34 (4<sup>th</sup> order ETD with 3<sup>rd</sup> order embedding)
-3. IF34 (4<sup>th</sup> order IF with 3<sup>rd</sup> order embedding)
-4. IF45DP (5<sup>th</sup> order IF with 4<sup>th</sup> order embedding) 
+---
 
-The constant step solver options provided are
-1. ETD4 (4<sup>th</sup> order ETD - Krogstad method)
-2. ETD5 (5<sup>th</sup> order ETD - same as the 5th order method in ETD35)
-3. IF4 (4<sup>th</sup> order IF - same as the 4th order method in IF34)
+## Features
 
-In general, one should
-prefer ETD35 as it often has the best speed and stability for diagonal systems or diagonalized
-non-diagonal systems. Because the RK coefficients can be costly
-to compute, IF34 or constant step methods may be preferable in certain settings.
-A detailed discussion of these solvers is provided in the journal article  <a href = https://www.sciencedirect.com/science/article/pii/S0021999114006743> Exponential time-differencing with embedded Runge–Kutta adaptive step control </a>.
+- **Adaptive ETD/IF Runge–Kutta solvers**: ETD35, ETD34, IF34, IF45DP (embedded error control)
+- **Fixed-step solvers**: ETD4, ETD5, IF4
+- **Operator flexibility**: Diagonal or full matrix (spectral/finite-difference)
+- **Spectral methods**: Fourier/Chebyshev support
+- **Configurable error control**: `SolverConfig` for tolerances, safety factors
+- **Logging**: Per-solver logging, adjustable verbosity
+- **Lightweight API**: Pass a linear operator array and a callable nonlinear function
+- **Utility modules**: Grids, spectral derivatives, transforms, models, logging helpers
 
-# Dependencies
+Supported equations: Nonlinear Schrödinger, Kuramoto–Sivashinsky, Korteweg–de Vries, Burgers, Allen–Cahn, Sine–Gordon
 
-Package requires
-<ul>
-<li> numpy </li>
-<li> scipy </li>
-</ul>
-Tested with versions
-<ul>
-<li> numpy = 1.19.2 </li>
-<li> scipy = 1.6.0 </li>
-</ul>
+---
 
+## Installation
 
-# Usage #
+**pip (recommended):**
+```bash
+python -m pip install rkstiff
+````
 
-Each of the solvers is a python class (UPPERCASE) stored in a module of the same name (lowercase). Initializing each class requires two arguments, a linear operator `L` in the form of a numpy array, and a nonlinear function `NL(u)`. The solvers can then be proagated either by using the solver.step function (user steps through time) or using the solver.evolve function (stepping handled internally). For example 
+**conda-forge:**
 
-```python
-from rkstiff import etd35
-linear_op = # some linear operator 
-def nl_func(u): #  nonlinear function defined here 
-solver = etd35.ETD35(lin_op=linear_op,nl_func=nl_func)
-u0 = # initial field to be propagated 
-t0 =  # initial time 
-tf = # final time
-uf = solver.evolve(u0,t0=t0,tf=tf)
+```bash
+conda create -n rkstiff-env -c conda-forge rkstiff
+conda activate rkstiff-env
 ```
 
-By default, when using the function evolve, the field is stored at each step in a python list: u0,u1,...,uf are stored in solver.u. The corresponding times t0,t1,...,tf are stored in solver.t.
+**From source:**
 
-# Example #
-
-Consider the Kuramoto-Sivashinsky (KS) equation: 
-<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
- u<sub>t</sub> = -u<sub>xx</sub> - u<sub>xxxx</sub> - uu<sub>x</sub>. 
- 
- Converting to spectral space using a Fourier transform (F) we have 
-<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-v<sub>t</sub> = k<sub>x</sub><sup>2</sup>(1- k<sub>x</sub><sup>2</sup>)v - F \{ F<sup>-1</sup> \{v\} F<sup>-1</sup>\{ i k<sub>x</sub> v\} \} 
-<br>
-where v = F{u}. We can then plug linear_op = k<sub>x</sub><sup>2</sup>(1- k<sub>x</sub><sup>2</sup>), and NL(u) =  - F \{ F<sup>-1</sup> \{v\} F<sup>-1</sup>\{ i k<sub>x</sub> v\} \} into an rkstiff solver and propagate the field u in spectral space, converting back to real space when desired. For exampe, the python code may look something like this
-```python
-import numpy as np
-from rkstiff import grids
-from rkstiff import if34
-
-# uniform grid spacing, real-valued u -> construct_x_kx_rfft
-n = 8192
-a,b = 0,32*np.pi
-x,kx = grids.construct_x_kx_rfft(n,a,b) 
-
-linear_op = kx**2*(1-kx**2)
-def nl_func(u_fft):
-    u = np.fft.irfft(u_fft)
-    ux = np.fft.irfft(1j*kx*u_fft)
-    return -np.fft.rfft(u*ux)
-
-u0 = np.cos(x/16)*(1.+np.sin(x/16))
-u0_fft = np.fft.rfft(u0)
-solver = if34.IF34(lin_op=linear_op,nl_func=nl_func)
-ufFFT = solver.evolve(u0_fft,t0=0,tf=50,store_freq=20) # store every 20th step in solver.u and solver.t
-U = []
-for u_fft in solver.u:
-    U.append(np.fft.irfft(u_fft))
-U = np.array(U)
-t = np.array(solver.t)
-```
-
-The grid module in rkstiff has several useful helper functions for setting up spatial and spectral grids. Here we used it to construct grids for a real-valued `u` utilizing the real-valued numpy Fourier transform (rfft). The results of the KS 'chaotic' propagation are shown below. 
-<br>
-
-<img width="300" src="https://raw.githubusercontent.com/whalenpt/rkstiff/master/images/KSfig.png">
-
-# Installation #
-
-From the github source
 ```bash
 git clone https://github.com/whalenpt/rkstiff.git
 cd rkstiff
-python3 -m pip install .
+python -m pip install .
 ```
 
-PyPI install with a virtualenv (see the <a href = https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/> Python Packaging Authority </a> guide)
+**Extras:**
+
 ```bash
-python3 -m venv env
-source env/bin/activate
-python3 -m pip install rkstiff
+# demos: matplotlib + jupyter; tests: pytest
+python -m pip install "rkstiff[demo]"
+python -m pip install "rkstiff[test]"
 ```
 
-For use with Anaconda using the conda-forge channel (see the <a href = https://conda.io/projects/conda/en/latest/user-guide/getting-started.html> Getting started with conda guide</a>), from the terminal
+---
+
+## Quickstart Example (Kuramoto–Sivashinsky)
+
+```python
+import numpy as np
+from rkstiff import grids, if34
+
+# Real-valued grid for rfft
+n = 1024
+a, b = 0.0, 32.0 * np.pi
+x, kx = grids.construct_x_kx_rfft(n, a, b)
+
+# Linear operator in Fourier space
+lin_op = kx**2 * (1 - kx**2)
+
+# Nonlinear term: -F{ u * u_x }
+def nl_func(u_fft):
+    u = np.fft.irfft(u_fft)
+    ux = np.fft.irfft(1j * kx * u_fft)
+    return -np.fft.rfft(u * ux)
+
+# Initial condition in real space → Fourier space
+u0 = np.cos(x / 16) * (1.0 + np.sin(x / 16))
+u0_fft = np.fft.rfft(u0)
+
+solver = if34.IF34(lin_op=lin_op, nl_func=nl_func)
+uf_fft = solver.evolve(u0_fft, t0=0.0, tf=50.0, store_freq=20)
+
+# Convert stored Fourier snapshots back to real space
+U = np.array([np.fft.irfft(s) for s in solver.u])  # shape: (num_snaps, n)
+t = np.array(solver.t)
+```
+
+> `solver.u` and `solver.t` store snapshots every `store_freq` internal steps; `evolve` returns the final state.
+
+<p align="left">
+  <img src="https://raw.githubusercontent.com/whalenpt/rkstiff/master/images/KSfig.png"
+       alt="Kuramoto–Sivashinsky chaotic propagation"
+       width="400">
+  <br>
+  <em> Kuramoto–Sivashinsky chaotic field propagation using IF34.</em>
+</p>
+
+> 💡 **More examples:**  
+> Several fully runnable **Jupyter notebooks** are included in the `demos/` folder.  
+> Each notebook illustrates solver usage, adaptive-step control, and visualization for different PDEs  
+> (e.g., Kuramoto–Sivashinsky, NLS, and Allen–Cahn).  
+> To try them:
+> ```bash
+> python -m pip install "rkstiff[demo]"
+> jupyter notebook demos/
+> ```
+
+---
+
+## API Overview
+
+### Solver Classes
+
+| Solver   | Module   | Order (embedded) | Adaptive | Notes                         |
+| -------- | -------- | ---------------- | -------- | ----------------------------- |
+| `ETD35`  | `etd35`  | 5 (3)            | ✅        | Best for diagonalized systems |
+| `ETD34`  | `etd34`  | 4 (3)            | ✅        | Krogstad 4th order            |
+| `IF34`   | `if34`   | 4 (3)            | ✅        | Integrating factor            |
+| `IF45DP` | `if45dp` | 5 (4)            | ✅        | Dormand–Prince IF             |
+| `ETD4`   | `etd4`   | 4 (–)            | ❌        | Krogstad fixed-step           |
+| `ETD5`   | `etd5`   | 5 (–)            | ❌        | Same base as ETD35            |
+| `IF4`    | `if4`    | 4 (–)            | ❌        | Fixed-step IF                 |
+
+### Constructor Signature (Adaptive Classes)
+
+```python
+Solver(lin_op: np.ndarray, nl_func: Callable[[np.ndarray], np.ndarray], config: SolverConfig = ..., loglevel: str = ...)
+```
+
+* `lin_op`: array shaped like `u`, typically diagonal entries in the working basis
+* `nl_func(u)`: returns nonlinear term in same basis
+* `config`: error control and adaptivity (optional; defaults to SolverConfig())
+* `loglevel`: logging verbosity (optional; defaults to "INFO")
+
+---
+
+## Configuration & Logging
+
+### Adaptive Error Control
+
+Configure embedded error estimation and adaptive step control via `SolverConfig`:
+
+```python
+from rkstiff.if34 import IF34
+from rkstiff.solveras import SolverConfig
+
+config = SolverConfig(epsilon=1e-5, incr_f=1.2, decr_f=0.8, safety_f=0.9)
+solver = IF34(lin_op, nl_func, config=config, loglevel="INFO")
+```
+
+**Parameter notes (typical meanings):**
+
+* `epsilon`: target local error tolerance for the embedded pair.
+* `safety_f`: safety factor applied to proposed step-size updates.
+* `incr_f` / `decr_f`: bounds on how much `dt` may grow/shrink on accept/reject.
+* (Implementation-specific fields may exist; see docs for full list and defaults.)
+
+### Logging
+
+Set logging level per solver:
+
+```python
+solver = IF34(lin_op, nl_func, loglevel="DEBUG")
+```
+
+---
+
+## Utility Modules
+
+* `grids`: Grid and wavenumber construction for FFT/RFFT/Chebyshev
+* `derivatives`: Spectral differentiation (FFT, RFFT, Chebyshev)
+* `transforms`: Basis transforms
+* `models`: Example PDEs
+* `util.loghelper`: Logging setup and control
+
+---
+
+## Usage Tips
+
+* For **spectral methods**, pass `lin_op` in Fourier space and implement `nl_func` in that same space
+* For **diagonalizable systems**, pre-diagonalize once and reuse that basis
+* ETD methods may **precompute φ-functions**; reuse the solver instance for speed
+* Storage: `solver.u` and `solver.t` hold snapshots; control frequency with `store_freq`
+
+---
+
+## Testing & Coverage
+
+Run tests and view coverage:
+
 ```bash
-conda create --name rkstiff-env
-conda activate rkstiff-env
-conda install rkstiff -c conda-forge
+python -m pip install "rkstiff[test]"
+pytest
 ```
 
-The demos require installation of the python `matplotlib` and `jupyter` packages in addition to `numpy` and `scipy`. The tests require installation of the python package `pytest`. These may be installed seperately or by using 
-```bash
-python3 -m pip install '.[demo]'
-python3 -m pip install '.[test]'
-```
-when installing from the rkstiff source directory
+---
 
-# License #
-This project is licensed under the MIT License - see the [License](https://github.com/whalenpt/rkstiff/blob/develop/LICENSE) file for details.
+## Citation
 
-# Citation #
+If you use `rkstiff` in academic work, please cite:
 
-```text
-@article{WHALEN2015579,
-title = {Exponential time-differencing with embedded Runge–Kutta adaptive step control},
-journal = {Journal of Computational Physics},
-volume = {280},
-pages = {579-601},
-year = {2015},
-author = {P. Whalen and M. Brio and J.V. Moloney}
+> P. Whalen, M. Brio, J.V. Moloney,
+> *Exponential time-differencing with embedded Runge–Kutta adaptive step control*,
+> *Journal of Computational Physics* 280 (2015) 579–601.
+> DOI: [10.1016/j.jcp.2014.09.038](https://doi.org/10.1016/j.jcp.2014.09.038)
+
+```bibtex
+@article{WhalenBrioMoloney2015,
+  title   = {Exponential time-differencing with embedded Runge--Kutta adaptive step control},
+  author  = {Whalen, P. and Brio, M. and Moloney, J. V.},
+  journal = {Journal of Computational Physics},
+  volume  = {280},
+  pages   = {579--601},
+  year    = {2015},
+  doi     = {10.1016/j.jcp.2014.09.038}
 }
 ```
 
-# Contact #
-Patrick Whalen - whalenpt@gmail.com
+---
 
+## License
+
+MIT — see [LICENSE](https://github.com/whalenpt/rkstiff/blob/develop/LICENSE) for details.
+
+## Contact
+
+Patrick Whalen — [whalenpt@gmail.com](mailto:whalenpt@gmail.com)
