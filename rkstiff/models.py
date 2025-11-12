@@ -241,6 +241,9 @@ def allen_cahn_ops(
     lin_op = lin_op[1:-1, 1:-1]
 
     def nl_func(u: np.ndarray) -> np.ndarray:
-        return x[1:-1] - np.power(u + x[1:-1], 3)
+        val = x[1:-1] - np.power(u + x[1:-1], 3)
+        return np.asarray(val, dtype=np.complex128).ravel()
+#    def nl_func(u: np.ndarray) -> np.ndarray:
+#        return x[1:-1] - np.power(u + x[1:-1], 3)
 
     return lin_op, nl_func
