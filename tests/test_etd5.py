@@ -21,12 +21,6 @@ def test_etd5_evolve():
     kdv_evolve_eval(solver, u0_fft, u_exact_fft, h=h, tf=h * steps, tol=1e-6)
 
 
-import numpy as np
-import pytest
-from rkstiff.etd5 import ETD5, _Etd5Diagonal, _Etd5NonDiagonal
-from rkstiff.etd import ETDConfig
-
-
 # ---------------------------
 # Helper functions
 # ---------------------------
