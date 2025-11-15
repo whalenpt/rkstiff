@@ -138,7 +138,7 @@ def test_if34_step_kdv():
     solver = IF34(
         lin_op=linear_op, nl_func=nl_func, config=SolverConfig(epsilon=1e-1)
     )  # small epsilon -> actual step will match requested
-    kdv_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol=1e-4, solver_type="as")
+    kdv_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol=1e-4)
 
 
 def test_if34_evolve_kdv():

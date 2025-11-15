@@ -15,10 +15,16 @@ the nonlinear function :math:`\mathcal{N}(\mathbf{U})`, and logging
 verbosity across all stiff PDE solvers.
 """
 
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Callable, Union, Literal
 import numpy as np
+from typing import TYPE_CHECKING
+
 from .util.loghelper import get_solver_logger, set_log_level, get_level_name
+
+if TYPE_CHECKING:
+    from .util.solver_type import SolverType
 
 
 class BaseSolver(ABC):
@@ -128,6 +134,30 @@ class BaseSolver(ABC):
 
         self._diag = len(dims) == 1
         self.logger.debug("Linear operator shape: %s, diagonal: %s", dims, self._diag)
+
+    @property
+    @abstractmethod
+    def solver_type(self) -> SolverType:
+        """
+        Return the type of this solver.
+
+        Returns
+        -------
+        SolverType
+            Either CONSTANT_STEP or ADAPTIVE_STEP.
+
+        Notes
+        -----
+        This is an abstract property that must be overridden in subclasses
+        BaseSolverCS and BaseSolverAS.
+
+        Examples
+        --------
+        >>> from rkstiff.if4 import IF4
+        >>> solver = IF4(lin_op, nl_func)
+        >>> solver.solver_type
+        <SolverType.CONSTANT_STEP: 1>
+        """
 
     # ------------------------------------------------------------------
     # Logging utilities

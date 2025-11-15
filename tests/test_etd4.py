@@ -9,7 +9,7 @@ def test_etd4_step():
     """Test the ETD4 solver step method on the KdV soliton problem."""
     u0_fft, linear_op, nl_func, u_exact_fft, h, steps = kdv_soliton_setup()
     solver = ETD4(lin_op=linear_op, nl_func=nl_func)
-    kdv_step_eval(solver, u0_fft, u_exact_fft, h, steps, 1e-6, solver_type='cs')
+    kdv_step_eval(solver, u0_fft, u_exact_fft, h, steps, 1e-6)
 
 
 def test_etd4_evolve():

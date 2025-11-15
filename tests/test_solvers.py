@@ -3,19 +3,11 @@
 import pytest
 import numpy as np
 from rkstiff.etd34 import ETD34
-from rkstiff.if34 import IF34
 from rkstiff.if45dp import IF45DP
 from rkstiff.etd import ETDAS
-from rkstiff.if4 import IF4
 from rkstiff.solveras import BaseSolverAS, SolverConfig
 from rkstiff.etd import ETDConfig
-from testing_util import (
-    allen_cahn_setup,
-    burgers_setup,
-    kdv_soliton_setup,
-    kdv_evolve_eval,
-    kdv_step_eval
-)
+from testing_util import burgers_setup
 
 
 def test_bad_solver_input():

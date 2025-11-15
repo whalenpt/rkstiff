@@ -22,6 +22,7 @@ from abc import abstractmethod
 from typing import Callable, Union, Literal
 import numpy as np
 from .solver import BaseSolver
+from .util.solver_type import SolverType
 
 
 # ======================================================================
@@ -98,6 +99,25 @@ class BaseSolverCS(BaseSolver):
         """Initialize a constant-step solver and validate inputs."""
         super().__init__(lin_op, nl_func, loglevel)
         self.__tf, self.__tc = 0, 0
+
+    @property
+    def solver_type(self) -> SolverType:
+        """
+        Return the solver type for constant-step solvers.
+        
+        Returns
+        -------
+        SolverType
+            Always returns ``SolverType.CONSTANT_STEP``.
+            
+        Examples
+        --------
+        >>> from rkstiff.if4 import IF4
+        >>> solver = IF4(lin_op, nl_func)
+        >>> solver.solver_type == SolverType.CONSTANT_STEP
+        True
+        """
+        return SolverType.CONSTANT_STEP
 
     # ------------------------------------------------------------------
     # Reset logic

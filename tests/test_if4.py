@@ -25,7 +25,7 @@ def test_if4_kdv_step():
     """Test IF4 single step accuracy on KdV soliton."""
     u0_fft, linear_op, nl_func, u_exact_fft, h, steps = kdv_soliton_setup()
     solver = IF4(lin_op=linear_op, nl_func=nl_func)
-    kdv_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol=1e-5, solver_type="cs")
+    kdv_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol=1e-5)
 
 
 def test_if4_kdv_evolve():
