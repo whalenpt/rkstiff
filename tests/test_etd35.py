@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from rkstiff.etd35 import _Etd35Diagonal, _Etd35Diagonalized, ETD35, SolverConfig
 from rkstiff.etd import ETDConfig
-from testing_util import kdv_soliton_setup, allen_cahn_setup, kdv_adp_step_eval, kdv_evolve_eval
+from testing_util import allen_cahn_setup, kdv_soliton_setup, kdv_evolve_eval, kdv_step_eval
 
 
 def dummy_nl(u):
@@ -10,15 +10,19 @@ def dummy_nl(u):
     return u**2
 
 
-def test_etd35():
-    """Test the ETD35 solver on the KdV soliton problem."""
+def test_etd35_step_kdv():
     u0_fft, linear_op, nl_func, u_exact_fft, h, steps = kdv_soliton_setup()
     solver = ETD35(
         lin_op=linear_op, nl_func=nl_func, config=SolverConfig(epsilon=1e-1)
-    )  # small epsilon -> step size isn't auto-reduced
-    kdv_adp_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol=1e-4)
-    solver.reset()
-    solver.config.epsilon = 1e-4
+    )  # small epsilon -> actual steps will match requested in step method
+    kdv_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol=1e-4, solver_type="as")
+
+
+def test_etd35_evolve_kdv():
+    u0_fft, linear_op, nl_func, u_exact_fft, h, steps = kdv_soliton_setup()
+    solver = ETD35(
+        lin_op=linear_op, nl_func=nl_func, config=SolverConfig(epsilon=1e-4)
+    )  # small epsilon -> actual step will match requested
     kdv_evolve_eval(solver, u0_fft, u_exact_fft, h, tf=h * steps, tol=1e-4)
 
 

@@ -1,3 +1,5 @@
+"""Utility functions for setting up test problems."""
+
 from rkstiff.grids import construct_x_kx_rfft, construct_x_dx_cheb
 from rkstiff import models
 import numpy as np
@@ -50,15 +52,6 @@ def kdv_soliton_setup():
     return u0_fft, linear_op, nl_func, u_exact_fft, h, steps
 
 
-def kdv_adp_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol):
-    """Test the step method of a solver on the KdV soliton problem."""
-    for _ in range(steps):
-        u0_fft, h_actual, _ = solver.step(u0_fft, h)
-        assert (h_actual - h) < 1e-10
-    rel_err = np.linalg.norm(u0_fft - u_exact_fft) / np.linalg.norm(u_exact_fft)
-    assert rel_err < tol
-
-
 def kdv_evolve_eval(solver, u0_fft, u_exact_fft, h, tf, tol):
     """Test the evolve method of a solver on the KdV soliton problem."""
     u_fft = solver.evolve(u0_fft, 0.0, tf, h, store_data=False)
@@ -66,9 +59,14 @@ def kdv_evolve_eval(solver, u0_fft, u_exact_fft, h, tf, tol):
     assert rel_err < tol
 
 
-def kdv_cs_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol):
+def kdv_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol, solver_type='cs'):
     """Test the step method of a solver on the KdV soliton problem."""
-    for _ in range(steps):
-        u0_fft = solver.step(u0_fft, h)
+    if solver_type == 'cs':
+        for _ in range(steps):
+            u0_fft = solver.step(u0_fft, h)
+    elif solver_type == 'as':
+        for _ in range(steps):
+            u0_fft, h_actual, _ = solver.step(u0_fft, h)
+            assert (h_actual - h) < 1e-10  # Ensure step size matches requested... so no adaptivity
     rel_err = np.linalg.norm(u0_fft - u_exact_fft) / np.linalg.norm(u_exact_fft)
     assert rel_err < tol

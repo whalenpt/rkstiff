@@ -4,14 +4,14 @@ import numpy as np
 import pytest
 from rkstiff.etd import ETDConfig
 from rkstiff.etd5 import ETD5, _Etd5Diagonal, _Etd5NonDiagonal
-from testing_util import kdv_soliton_setup, kdv_evolve_eval, kdv_cs_step_eval
+from testing_util import kdv_soliton_setup, kdv_evolve_eval, kdv_step_eval
 
 
 def test_etd5_step():
     """Test the ETD5 solver step method on the KdV soliton problem."""
     u0_fft, linear_op, nl_func, u_exact_fft, h, steps = kdv_soliton_setup()
     solver = ETD5(lin_op=linear_op, nl_func=nl_func)
-    kdv_cs_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol=1e-6)
+    kdv_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol=1e-6)
 
 
 def test_etd5_evolve():
