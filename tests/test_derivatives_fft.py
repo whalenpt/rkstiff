@@ -1,5 +1,6 @@
 """Tests for the derivative functions."""
 
+import pytest
 import numpy as np
 from rkstiff.grids import construct_x_kx_fft
 from rkstiff.derivatives import dx_fft
@@ -56,3 +57,21 @@ def test_gauss_dx_fft():
     ux_exact = -2 * x * np.exp(-(x**2))
     ux_approx = dx_fft(kx, u)
     assert np.allclose(ux_exact, ux_approx)
+
+
+def test_dx_fft_non_integer_order():
+    """dx_fft should reject non-integer derivative orders."""
+    u = np.ones(4, dtype=complex)
+    kx = np.array([0.0, 1.0, 2.0, 3.0])
+
+    with pytest.raises(TypeError, match="must be an integer"):
+        dx_fft(kx, u, n="second")
+
+
+def test_dx_fft_negative_order():
+    """dx_fft should reject negative derivative orders."""
+    u = np.ones(4, dtype=complex)
+    kx = np.array([0.0, 1.0, 2.0, 3.0])
+
+    with pytest.raises(ValueError, match="non-negative"):
+        dx_fft(kx, u, n=-3)

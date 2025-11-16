@@ -18,6 +18,7 @@ from abc import abstractmethod
 from typing import Tuple, Optional, Callable, Union, Literal
 import numpy as np
 from .solver import BaseSolver
+from .util.solver_type import SolverType
 
 
 # ======================================================================
@@ -283,6 +284,25 @@ class BaseSolverAS(BaseSolver):
     # ------------------------------------------------------------------
     # Core Interface
     # ------------------------------------------------------------------
+    @property
+    def solver_type(self) -> SolverType:
+        """
+        Return the solver type for adaptive-step solvers.
+
+        Returns
+        -------
+        SolverType
+            Always returns ``SolverType.ADAPTIVE_STEP``.
+
+        Examples
+        --------
+        >>> from rkstiff.etd35 import ETD35
+        >>> solver = ETD35(lin_op, nl_func)
+        >>> solver.solver_type == SolverType.ADAPTIVE_STEP
+        True
+        """
+        return SolverType.ADAPTIVE_STEP
+
     def reset(self) -> None:
         """Reset solver and clear adaptive-step state."""
         self.logger.debug("Resetting adaptive solver state")

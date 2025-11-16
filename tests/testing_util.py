@@ -1,6 +1,12 @@
+"""Utility functions for setting up test problems."""
+
 from rkstiff.grids import construct_x_kx_rfft, construct_x_dx_cheb
 from rkstiff import models
 import numpy as np
+from typing import Union
+import numpy as np
+from rkstiff.solver import BaseSolver
+from rkstiff.util.solver_type import SolverType
 
 
 def allen_cahn_setup():
@@ -50,25 +56,69 @@ def kdv_soliton_setup():
     return u0_fft, linear_op, nl_func, u_exact_fft, h, steps
 
 
-def kdv_adp_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol):
-    """Test the step method of a solver on the KdV soliton problem."""
-    for _ in range(steps):
-        u0_fft, h_actual, _ = solver.step(u0_fft, h)
-        assert (h_actual - h) < 1e-10
-    rel_err = np.linalg.norm(u0_fft - u_exact_fft) / np.linalg.norm(u_exact_fft)
-    assert rel_err < tol
+# ======================================================================
+# Evolve evaluator
+# ======================================================================
+def kdv_evolve_eval(
+    solver: BaseSolver,
+    u0_fft: np.ndarray,
+    u_exact_fft: np.ndarray,
+    h: float,
+    tf: float,
+    tol: float
+) -> None:
+    """
+    Test the evolve() method of a solver on the KdV soliton problem.
+    """
+    solver_type = solver.solver_type
+
+    if solver_type == SolverType.CONSTANT_STEP:
+        u_final = solver.evolve(u0_fft, t0=0.0, tf=tf, h=h, store_data=False)
+
+    elif solver_type == SolverType.ADAPTIVE_STEP:
+        u_final = solver.evolve(u0_fft, t0=0.0, tf=tf, h_init=h, store_data=False)
+
+    else:
+        raise ValueError(f"Unknown solver type: {solver_type}")
+
+    # Check accuracy
+    rel_err = np.linalg.norm(u_final - u_exact_fft) / np.linalg.norm(u_exact_fft)
+    assert rel_err < tol, f"Relative error {rel_err:.2e} exceeds tolerance {tol:.2e}"
 
 
-def kdv_evolve_eval(solver, u0_fft, u_exact_fft, h, tf, tol):
-    """Test the evolve method of a solver on the KdV soliton problem."""
-    u_fft = solver.evolve(u0_fft, 0.0, tf, h, store_data=False)
-    rel_err = np.linalg.norm(u_fft - u_exact_fft) / np.linalg.norm(u_exact_fft)
-    assert rel_err < tol
+# ======================================================================
+# Step evaluator
+# ======================================================================
+def kdv_step_eval(
+    solver: BaseSolver, 
+    u0_fft: np.ndarray, 
+    u_exact_fft: np.ndarray, 
+    h: float, 
+    steps: int, 
+    tol: float
+) -> None:
+    """
+    Test the step() method of a solver on the KdV soliton problem.
+    """
+    solver_type = solver.solver_type
+    u_final = u0_fft.copy()
 
+    if solver_type == SolverType.CONSTANT_STEP:
+        for _ in range(steps):
+            u_final = solver.step(u_final, h)
 
-def kdv_cs_step_eval(solver, u0_fft, u_exact_fft, h, steps, tol):
-    """Test the step method of a solver on the KdV soliton problem."""
-    for _ in range(steps):
-        u0_fft = solver.step(u0_fft, h)
-    rel_err = np.linalg.norm(u0_fft - u_exact_fft) / np.linalg.norm(u_exact_fft)
-    assert rel_err < tol
+    elif solver_type == SolverType.ADAPTIVE_STEP:
+        for _ in range(steps):
+            u_final, h_actual, h_suggest = solver.step(u_final, h)
+
+            # Adaptive solvers must not adapt during this controlled test
+            assert abs(h_actual - h) < 1e-10, (
+                f"Expected fixed step size {h}, but got {h_actual}."
+            )
+
+    else:
+        raise ValueError(f"Unknown solver type: {solver_type}")
+
+    # Check accuracy
+    rel_err = np.linalg.norm(u_final - u_exact_fft) / np.linalg.norm(u_exact_fft)
+    assert rel_err < tol, f"Relative error {rel_err:.2e} exceeds tolerance {tol:.2e}"
