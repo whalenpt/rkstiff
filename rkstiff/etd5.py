@@ -257,7 +257,7 @@ class _Etd5Diagonal:  # pylint: disable=too-few-public-methods
             + self._b5 * self._NL5
             + self._b6 * self._NL6
         )
-        self._NL1 = self._NL6  # FSAL principle
+        self._NL1 = self.nl_func(self._k)  # FSAL Principle
         return self._k
 
 
@@ -478,7 +478,7 @@ class _Etd5NonDiagonal:  # pylint: disable=too-few-public-methods
             + self._b5.dot(self._NL5)
             + self._b6.dot(self._NL6)
         )
-        self._NL1 = self._NL6  # FSAL principle
+        self._NL1 = self.nl_func(self._k)  # FSAL principle
         return self._k
 
 

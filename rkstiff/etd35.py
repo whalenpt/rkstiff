@@ -287,7 +287,7 @@ class _Etd35Diagonal:
         self._a75[idx] = (-313 * psi1_1 + 883 * psi2_1 - 90 * psi3_1) / 1350
         self._a76[idx] = (509 * psi1_1 - 2129 * psi2_1 + 1830 * psi3_1) / 2700
 
-    def new_step_init(self, u: np.ndarray) -> None:
+    def stage_init(self, u: np.ndarray) -> None:
         """
         Initialize nonlinear term for new step.
 
@@ -315,7 +315,7 @@ class _Etd35Diagonal:
             Updated solution and error estimate.
         """
         if accept:
-            self.new_step_init(u)
+            self.stage_init(u)
 
         self._k = self._EL14 * u + self._a21 * self._NL1
         self._NL2 = self.nl_func(self._k)
@@ -432,9 +432,10 @@ class _Etd35Diagonalized(_Etd35Diagonal):
         z = h * self._eig_vals
         self._update_coeffs_diagonal(h, z)
 
-    def new_step_init(self, u: np.ndarray) -> None:
+
+    def stage_init(self, u: np.ndarray) -> None:
         """
-        Initialize transformed nonlinear term for new step.
+        Initialize stored nonlinear evaluation and transformed state v = S^{-1} u.
 
         Parameters
         ----------
@@ -460,8 +461,9 @@ class _Etd35Diagonalized(_Etd35Diagonal):
         tuple[np.ndarray, np.ndarray]
             Updated solution and error estimate.
         """
+        # Use First is same as last principle (FSAL)
         if accept:
-            self.new_step_init(u)
+            self.stage_init(u)
 
         self._k = self._EL14 * self._v + self._a21 * self._NL1
         self._NL2 = self._Sinv.dot(self.nl_func(self._S.dot(self._k)))
@@ -655,7 +657,7 @@ class _Etd35NonDiagonal:
         self._a75 = h * (-313 * psi1_1 + 883 * psi2_1 - 90 * psi3_1) / 1350
         self._a76 = h * (509 * psi1_1 - 2129 * psi2_1 + 1830 * psi3_1) / 2700
 
-    def new_step_init(self, u: np.ndarray) -> None:
+    def stage_init(self, u: np.ndarray) -> None:
         """
         Initialize nonlinear term for new time step.
 
@@ -683,7 +685,7 @@ class _Etd35NonDiagonal:
             Updated solution and error estimate.
         """
         if accept:
-            self.new_step_init(u)
+            self.stage_init(u)
 
         self._k = self._EL14.dot(u) + self._a21.dot(self._NL1)
         self._NL2 = self.nl_func(self._k)
@@ -871,7 +873,7 @@ class ETD35(ETDAS):
         """
         self._update_coeffs(h)
         if not self._stages_init:
-            self._method.new_step_init(u)
+            self._method.stage_init(u)
             self._stages_init = True
         return self._method.update_stages(u, self._accept)
 

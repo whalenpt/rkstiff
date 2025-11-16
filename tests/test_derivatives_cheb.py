@@ -44,3 +44,36 @@ def test_dx_cheb_bad_shape():
     Dx = np.eye(7)
     with pytest.raises(ValueError):
         derivatives.dx_cheb(Dx, arr)
+
+def test_dx_cheb_non_integer_order():
+    """dx_cheb should reject non-integer derivative orders."""
+    D = np.eye(3)
+    u = np.ones(3)
+
+    with pytest.raises(TypeError, match="must be an integer"):
+        derivatives.dx_cheb(D, u, n=None)
+
+def test_dx_cheb_negative_order():
+    """dx_cheb should reject negative derivative orders."""
+    D = np.eye(3)
+    u = np.ones(3)
+
+    with pytest.raises(ValueError, match="non-negative"):
+        derivatives.dx_cheb(D, u, n=-2)
+
+def test_dx_cheb_shape_mismatch():
+    """dx_cheb should raise when D and u do not align in the first dimension."""
+    D = np.eye(4)       # 4×4 differentiation matrix
+    u = np.ones(3)      # length 3 → mismatch
+
+    with pytest.raises(ValueError, match="align in the first dimension"):
+        derivatives.dx_cheb(D, u)
+
+
+def test_dx_cheb_shape_mismatch_2d():
+    """dx_cheb should also raise when u is 2D but mismatched."""
+    D = np.eye(5)          # 5×5 matrix
+    u = np.ones((4, 2))    # first dimension 4 → mismatch
+
+    with pytest.raises(ValueError, match="align in the first dimension"):
+        derivatives.dx_cheb(D, u)
