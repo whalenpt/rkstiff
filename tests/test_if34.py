@@ -146,3 +146,13 @@ def test_if34_evolve_kdv():
     solver = IF34(lin_op=linear_op, nl_func=nl_func, config=SolverConfig(epsilon=1e-5))
     # Tolerances not exact for semi-linear PDE systems... needed to relax
     kdv_evolve_eval(solver, u0_fft, u_exact_fft, h, tf=h * steps, tol=1e-4)
+
+
+def test_etd34diagonalized_large_condition_warning(caplog):
+    A = np.array([[1, 1e6], [0, 1]])
+    mod_logger = _If34Diagonalized.__module__
+
+    with caplog.at_level("WARNING", logger=mod_logger):
+        _ = _If34Diagonalized(A, dummy_nl)
+
+    assert any("condition number" in m for m in caplog.messages)

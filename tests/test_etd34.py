@@ -131,3 +131,12 @@ def test_etd34_reset_and_coeff_update():
     solver._update_coeffs(0.1)  # Should not update again
     solver._update_coeffs(0.2)  # Should update
     assert solver._h_coeff == 0.2
+
+def test_etd34diagonalized_large_condition_warning(caplog):
+    A = np.array([[1, 1e6], [0, 1]])
+    mod_logger = _Etd34Diagonalized.__module__
+
+    with caplog.at_level("WARNING", logger=mod_logger):
+        _ = _Etd34Diagonalized(A, dummy_nl, ETDConfig())
+
+    assert any("condition number" in m for m in caplog.messages)

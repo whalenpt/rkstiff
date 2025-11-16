@@ -153,3 +153,20 @@ def test_dx_rfft_non_integer_n():
 
     with pytest.raises(TypeError):
         derivatives.dx_rfft(kx, arr, n=1.5)
+
+def test_dx_rfft_non_integer_order():
+    """dx_rfft should reject non-integer derivative orders."""
+    # N = 4 → rfft output length is 3 → choose matching kx
+    u = np.array([1.0, 2.0, 3.0, 4.0])
+    kx = np.array([0.0, 1.0, 2.0])
+
+    with pytest.raises(TypeError, match="must be an integer"):
+        derivatives.dx_rfft(kx, u, n=1.5)
+
+def test_dx_rfft_negative_order():
+    """dx_rfft should reject negative derivative orders."""
+    u = np.array([1.0, 2.0, 3.0, 4.0])
+    kx = np.array([0.0, 1.0, 2.0])  # rFFT shape for N=4
+
+    with pytest.raises(ValueError, match="non-negative"):
+        derivatives.dx_rfft(kx, u, n=-1)

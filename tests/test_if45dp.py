@@ -14,3 +14,11 @@ def test_if45dp():
     u_fft = solver.evolve(u0_fft, t0=0, tf=0.85, store_data=False)
     rel_err = np.abs(np.linalg.norm(u_fft) - np.linalg.norm(u0_fft)) / np.linalg.norm(u0_fft)
     assert rel_err < 1e-2
+
+def test_if45dp_rejects_non_1d_operator():
+    lin_op = np.eye(3)
+    nl = lambda u: u
+    with pytest.raises(ValueError) as e:
+        IF45DP(lin_op=lin_op, nl_func=nl, config=SolverConfig())
+
+    assert "IF45DP only handles 1D linear operators" in str(e.value)
