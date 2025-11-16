@@ -13,8 +13,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
-    env:
-      USING_COVERAGE: "3.12"
 
     steps:
     - uses: actions/checkout@v3
@@ -39,9 +37,8 @@ jobs:
       run: |
         pytest --cov=rkstiff tests -ra # uses pyproject.toml addopts including --cov
 
-    - name: Upload coverage to Codecov
+    - name: Upload coverage
+      if: ${{ matrix.python-version == '3.12' }} # run once
       uses: codecov/codecov-action@v3
-      if: contains(env.USING_COVERAGE, matrix.python-version)
       with:
-        token: ${{secrets.CODECOV_TOKEN}}
-        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
