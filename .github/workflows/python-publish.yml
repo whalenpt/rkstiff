@@ -39,6 +39,7 @@ jobs:
         TAG_NAME: ${{ github.event.release.tag_name }}
       run: |
         echo "Triggering ReadTheDocs build for tag $TAG_NAME"
-        curl -X POST -H "Content-Type: application/json" \
-             -d "{\"token\": \"${RTD_TOKEN}\"}" \
-             "https://readthedocs.org/api/v3/projects/rkstiff/versions/${TAG_NAME}/builds/"
+        curl -v -X POST \
+          -H "Authorization: Token ${RTD_TOKEN}" \
+          -H "Content-Type: application/json" \
+          "https://readthedocs.org/api/v3/projects/rkstiff/versions/${TAG_NAME}/builds/"
